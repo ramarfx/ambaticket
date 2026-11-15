@@ -15,8 +15,8 @@ describe('AppController', () => {
   });
 
   describe('root', () => {
-    it('should return "Hello World!"', () => {
-      expect(appController.getHello()).toBe('Hello World!');
+    it('laporan status', () => {
+      expect(appController.getStatus()).toEqual({ service: 'ambaticket', status: 'ok' });
     });
   });
 });

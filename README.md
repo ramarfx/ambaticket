@@ -1,126 +1,222 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# AmbaTicket
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+Backend penjualan tiket event dengan kuota terbatas. Dua tipe tiket per event, tiap tipe punya kuota dan harga sendiri. Pesanan menahan kuota selama 15 menit, maksimal 4 tiket per pembeli per event, pembayaran disimulasikan, dan tiket terbit tepat sekali per pesanan.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+Stack: NestJS 12, PostgreSQL 17, Drizzle ORM, Docker Compose. Test dengan Vitest.
 
-## Description
+## Jalankan dari mesin bersih
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
-
-## Project setup
+Syarat: Docker dan Docker Compose.
 
 ```bash
-$ bun install
+git clone <repo> && cd ambaticket
+docker compose up --build
 ```
 
-## Compile and run the project
+API hidup di `http://localhost:3000`. Perintah itu menyalakan database (dengan healthcheck), menjalankan migrasi, lalu API. Cek dengan:
 
 ```bash
-# development
-$ bun run start
-
-# watch mode
-$ bun run start:dev
-
-# production mode
-$ bun run start:prod
+curl localhost:3000
+# {"service":"ambaticket","status":"ok"}
 ```
 
-## Run tests
+Catatan: kalau sebelumnya pernah ada volume `pgdata` lama, jalankan `docker compose down -v` sekali supaya database awal dan database test dibuat ulang.
+
+## Alur demo (copy paste)
+
+Butuh `curl` dan `jq`.
 
 ```bash
-# unit tests
-$ bun run test
+# 1. Penyelenggara membuat event: Reguler 100 tiket, VIP 10 tiket
+EVENT=$(curl -s -X POST localhost:3000/events \
+  -H 'content-type: application/json' \
+  -d '{"name":"Konser Amba","venue":"Jakarta","startsAt":"2026-12-01T19:00:00+07:00",
+       "ticketTypes":[{"name":"Reguler","priceIdr":150000,"quota":100},
+                      {"name":"VIP","priceIdr":500000,"quota":10}]}')
+echo "$EVENT" | jq '.ticketTypes[] | {name, quota, remaining}'
 
-# e2e tests
-$ bun run test:e2e
+EVENT_ID=$(echo "$EVENT" | jq -r .id)
+REGULER=$(echo "$EVENT" | jq -r '.ticketTypes[] | select(.name=="Reguler") | .id')
 
-# test coverage
-$ bun run test:cov
+# 2. Pembeli memesan 2 tiket. Kuota langsung ditahan.
+ORDER=$(curl -s -X POST localhost:3000/orders \
+  -H 'content-type: application/json' -H 'x-buyer-id: buyer-1' \
+  -d "{\"ticketTypeId\":\"$REGULER\",\"quantity\":2}")
+echo "$ORDER" | jq '{id, status, totalIdr, expiresAt}'
+ORDER_ID=$(echo "$ORDER" | jq -r .id)
+
+# 3. Sisa kuota turun walau belum dibayar
+curl -s localhost:3000/events/$EVENT_ID | jq '.ticketTypes[] | {name, sold, held, remaining}'
+
+# 4. Tandai lunas, tiket terbit
+curl -s -X POST localhost:3000/orders/$ORDER_ID/pay | jq '{status: .order.status, tickets: [.tickets[].code]}'
+
+# 5. Riwayat dan tiket pembeli
+curl -s localhost:3000/orders -H 'x-buyer-id: buyer-1' | jq '.[].status'
+curl -s localhost:3000/tickets -H 'x-buyer-id: buyer-1' | jq '.[] | {code, eventName, ticketTypeName}'
 ```
 
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+Pembatalan sebelum bayar mengembalikan kuota seketika:
 
 ```bash
-$ bun install -g @nestjs/mau
-$ mau deploy
+curl -s -X POST localhost:3000/orders/$ORDER_ID/cancel -H 'x-buyer-id: buyer-1'
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+Pesanan yang tidak dibayar dalam 15 menit berhenti menahan kuota dengan sendirinya. Untuk demo tanpa menunggu, jalankan API dengan `ORDER_TTL_SECONDS=10`.
 
-## Observability
+## Cara menandai pesanan lunas
 
-In production applications, observability is essential for understanding how your system behaves, detecting issues early, and maintaining reliable performance.
+Ada dua cara, keduanya memakai jalur transisi yang sama.
 
-[NestJS Observe](https://observe.nestjs.com) automatically instruments your NestJS application, giving you deep visibility into your system with minimal setup:
-
-- **Distributed tracing:** Follow requests across services and understand how they flow through your system.
-- **Waterfall analysis:** Visualize request execution and identify slow operations, bottlenecks, and unexpected delays.
-- **Performance analysis:** Analyze application performance in real time and quickly pinpoint areas that need optimization.
-- **Metrics:** Track key application and infrastructure metrics to understand system health and performance trends.
-- **Logging:** Centralize and correlate logs with traces and other telemetry to make debugging easier.
-- **Error tracking:** Detect errors quickly and investigate their root causes with the surrounding context.
-- **SLA monitoring:** Track service-level objectives and identify when your application is approaching or exceeding defined thresholds.
-- **Alarms and alerts:** Set up alerts for critical errors, performance degradation, SLA violations, and other anomalies so your team can react quickly.
-
-This project is already instrumented. To connect it, run this and approve the code it prints at [observe.nestjs.com/link](https://observe.nestjs.com/link) - signing up for free if you have no account:
+1. Simulasi penyedia pembayaran, satu panggilan:
 
 ```bash
-$ npx @nestjs/observe link
+curl -s -X POST localhost:3000/orders/$ORDER_ID/pay
 ```
 
-It writes the app key and secret into `.env` and makes every `nest start` script (`start`, `start:dev`, `start:debug`) load it. In production, set `OBSERVE_APP_KEY` and `OBSERVE_APP_SECRET` in the environment instead.
+2. Webhook ala penyedia sungguhan, dengan tanda tangan HMAC SHA-256 dari body mentah:
 
-Or do it by hand: create an application and an API key at [observe.nestjs.com](https://observe.nestjs.com), and set the pair as `OBSERVE_APP_KEY` and `OBSERVE_APP_SECRET` in the environment the app runs in.
+```bash
+SECRET=dev-webhook-secret
+BODY="{\"eventId\":\"evt-demo-1\",\"orderId\":\"$ORDER_ID\",\"type\":\"payment.succeeded\",\"amountIdr\":300000}"
+SIG=$(printf '%s' "$BODY" | openssl dgst -sha256 -hmac "$SECRET" -hex | awk '{print $NF}')
 
-The free plan needs no payment details and covers 300,000 events a month. You can also browse the [live demo](https://www.observe-demo.nestjs.com/dashboard) first - the whole dashboard over a busy service's data, with nothing to install.
+curl -s -X POST localhost:3000/webhooks/payments \
+  -H 'content-type: application/json' \
+  -H "x-payment-signature: $SIG" \
+  -d "$BODY" | jq
+```
 
-## Resources
+Kirim ulang perintah yang sama: hasilnya `{"applied":true,"duplicate":true,...}` dengan tiket yang identik, bukan tiket baru. Kirim setelah pesanan kedaluwarsa: `{"applied":false,"reason":"order_expired"}` dan tidak ada tiket yang terbit. Tanda tangan salah dibalas 401.
 
-Check out a few resources that may come in handy when working with NestJS:
+Rahasia HMAC diatur lewat `PAYMENT_WEBHOOK_SECRET` (default `dev-webhook-secret`).
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Auto-instrument your application with [NestJS Observe](https://observe.nestjs.com). Distributed tracing, metrics, and logging made easy. Error tracking and performance monitoring for your NestJS applications.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+## Uji otomatis
 
-## Support
+Semua test di dalam container, tidak perlu memasang apa pun selain Docker:
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+```bash
+docker compose --profile test run --rm test
+```
 
-## Stay in touch
+Atau di mesin yang punya Bun:
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+```bash
+bun install
+docker compose up -d db
+bun run test        # unit, tidak butuh database
+bun run test:e2e    # 16 test integrasi, butuh database
+```
 
-## License
+Yang diuji: alur pesan sampai tiket, kuota habis, batal mengembalikan kuota, batas 4 tiket (termasuk lintas tipe dan pesanan lunas), pesanan kedaluwarsa, bayar dua kali, webhook ganda, webhook terlambat, nominal tidak cocok, 200 pesanan bersamaan, dan 10 pesanan bersamaan dari satu pembeli.
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+## Bukti 200 pesanan bersamaan
+
+`scripts/loadtest.mjs` menembak API yang sedang hidup: 200 pesanan untuk kuota 100.
+
+```bash
+node scripts/loadtest.mjs
+```
+
+Hasil nyata dari mesin ini (Docker, PostgreSQL 17):
+
+```
+permintaan      : 200 bersamaan, kuota 100
+diterima (201)  : 100
+ditolak (409)   : 100
+sisa kuota      : 0, terjual 0, ditahan 100
+waktu total     : 2505 ms
+HASIL: tepat 100 terjual, tidak ada oversell
+```
+
+Test yang sama juga jalan di CI: `test/concurrency.e2e-spec.ts` menegaskan tepat 100 diterima, 100 ditolak `sold_out`, dan jumlah tiket tersimpan 100.
+
+## CI/CD
+
+`.github/workflows/ci.yml`:
+
+1. Setiap push dan pull request: install, lint, unit test, e2e test dengan service PostgreSQL, lalu build.
+2. Hanya kalau test hijau dan event-nya push: build image `runtime` dan push ke GHCR.
+3. Tag image selalu dari commit, bukan `latest`:
+
+```
+ghcr.io/<owner>/ambaticket:sha-<commit-sha-penuh>
+```
+
+Ambil image itu di mesin lain dengan `docker pull`, lalu jalankan dengan `DATABASE_URL` yang menunjuk database Postgres.
+
+## Endpoint
+
+| Method | Path | Keterangan |
+| --- | --- | --- |
+| `GET` | `/` | status API |
+| `POST` | `/events` | buat event dan tipe tiketnya |
+| `GET` | `/events` | daftar event dengan sisa kuota tiap tipe |
+| `GET` | `/events/:id` | detail event dan stok |
+| `POST` | `/orders` | pesan 1 sampai 4 tiket (`x-buyer-id`) |
+| `GET` | `/orders` | riwayat pesanan pembeli |
+| `GET` | `/orders/:id` | satu pesanan beserta tiketnya |
+| `POST` | `/orders/:id/cancel` | batal sebelum bayar |
+| `GET` | `/tickets` | semua tiket milik pembeli |
+| `POST` | `/orders/:id/pay` | simulasi pembayaran lunas |
+| `POST` | `/webhooks/payments` | webhook provider, wajib HMAC |
+
+Identitas pembeli memakai header `x-buyer-id` (bebas diisi apa saja). Ini bukan autentikasi sungguhan, sesuai aturan tugas.
+
+### Bentuk data penting
+
+`GET /events/:id` mengembalikan stok yang bisa dipercaya:
+
+```json
+{
+  "id": "...",
+  "name": "Konser Amba",
+  "ticketTypes": [
+    { "name": "VIP", "priceIdr": 500000, "quota": 10, "sold": 0, "held": 0, "remaining": 10 },
+    { "name": "Reguler", "priceIdr": 150000, "quota": 100, "sold": 0, "held": 2, "remaining": 98 }
+  ]
+}
+```
+
+`sold` tiket lunas, `held` tiket di pesanan yang belum lewat 15 menit, `remaining` sisanya.
+
+Pesanan berstatus `pending`, `paid`, `cancelled`, atau `expired`.
+
+### Kode kesalahan
+
+| HTTP | `code` | Arti |
+| --- | --- | --- |
+| 400 | bawaan Nest | body tidak valid, misalnya jumlah 0 atau 5 |
+| 401 | `invalid_signature` | tanda tangan webhook salah |
+| 404 | `event_not_found`, `ticket_type_not_found`, `order_not_found` | data tidak ada atau bukan milik pembeli |
+| 409 | `sold_out` | sisa kuota kurang dari permintaan |
+| 409 | `ticket_limit_exceeded` | total tiket pembeli di event itu akan lewat 4 |
+| 409 | `order_expired`, `order_cancelled`, `order_already_paid` | pesanan tidak bisa dibayar atau dibatalkan |
+| 409 | `amount_mismatch` | nominal webhook tidak sama dengan total pesanan |
+
+## Struktur repo
+
+```
+src/
+  db/          koneksi, skema Drizzle, migrasi dijalankan saat boot
+  events/      event dan stok tiket
+  bookings/    pesanan, pembatalan, tiket, job kedaluwarsa
+  payments/    simulasi bayar dan webhook
+drizzle/       migrasi SQL hasil drizzle-kit
+test/          test integrasi (Vitest + supertest)
+scripts/       loadtest 200 pesanan
+docker/        initdb untuk database test
+```
+
+## Konfigurasi
+
+| Variabel | Default | Arti |
+| --- | --- | --- |
+| `DATABASE_URL` | `postgres://ambaticket:ambaticket@localhost:5432/ambaticket` | koneksi Postgres |
+| `ORDER_TTL_SECONDS` | `900` | umur pesanan sebelum kuota dilepas |
+| `PAYMENT_WEBHOOK_SECRET` | `dev-webhook-secret` | kunci HMAC webhook |
+| `PORT` | `3000` | port API |
+
+## Kenapa desainnya begini
+
+Baca [DECISIONS.md](DECISIONS.md). Isinya alasan tiap pilihan, trade-off yang diambil, dan apa yang sengaja tidak dikerjakan.
