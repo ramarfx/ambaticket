@@ -198,7 +198,7 @@ Pesanan berstatus `pending`, `paid`, `cancelled`, atau `expired`.
 
 ```
 src/
-  db/          koneksi, skema Drizzle, migrasi dijalankan saat boot
+  db/          skema Drizzle, koneksi @nestjs/drizzle, migrasi saat boot
   events/      event dan stok tiket
   bookings/    pesanan, pembatalan, tiket, job kedaluwarsa
   payments/    simulasi bayar dan webhook

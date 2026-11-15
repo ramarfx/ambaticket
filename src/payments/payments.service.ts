@@ -1,8 +1,8 @@
-import { ConflictException, Inject, Injectable, UnauthorizedException } from '@nestjs/common';
+import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { InjectDrizzle } from '@nestjs/drizzle';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { BookingsService, type OrderView, type TicketView } from '../bookings/bookings.service.js';
-import { DB } from '../db/db.module.js';
-import type { Db } from '../db/db.service.js';
+import type { Database } from '../db/database.js';
 import type { PaymentWebhookInput } from './payments.schema.js';
 
 export type PaymentResult = {
@@ -17,7 +17,7 @@ export type PaymentResult = {
 @Injectable()
 export class PaymentsService {
   constructor(
-    @Inject(DB) private readonly db: Db,
+    @InjectDrizzle() private readonly db: Database,
     private readonly bookings: BookingsService,
   ) {}
 

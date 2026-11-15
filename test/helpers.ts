@@ -1,17 +1,17 @@
 import type { INestApplication } from '@nestjs/common';
+import { getDrizzleToken } from '@nestjs/drizzle';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import type { App } from 'supertest/types.js';
 import { AppModule } from '../src/app.module.js';
 import { configureApp } from '../src/app.setup.js';
-import { DB } from '../src/db/db.module.js';
-import type { Db } from '../src/db/db.service.js';
+import type { Database } from '../src/db/database.js';
 import { events, orders, paymentEvents, tickets, ticketTypes } from '../src/db/schema.js';
 
 export type TestContext = {
   app: INestApplication<App>;
   http: App;
-  db: Db;
+  db: Database;
 };
 
 export async function createTestApp(): Promise<TestContext> {
@@ -20,10 +20,10 @@ export async function createTestApp(): Promise<TestContext> {
   configureApp(app);
   await app.init();
   await app.listen(0);
-  return { app, http: app.getHttpServer(), db: app.get(DB) };
+  return { app, http: app.getHttpServer(), db: app.get<Database>(getDrizzleToken()) };
 }
 
-export async function resetDb(db: Db): Promise<void> {
+export async function resetDb(db: Database): Promise<void> {
   await db.delete(paymentEvents);
   await db.delete(tickets);
   await db.delete(orders);

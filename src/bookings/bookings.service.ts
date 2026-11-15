@@ -1,16 +1,15 @@
 import {
   ConflictException,
-  Inject,
   Injectable,
   Logger,
   NotFoundException,
   OnModuleDestroy,
   OnModuleInit,
 } from '@nestjs/common';
+import { InjectDrizzle } from '@nestjs/drizzle';
 import { and, desc, eq, sql } from 'drizzle-orm';
 import { randomBytes } from 'node:crypto';
-import { DB } from '../db/db.module.js';
-import type { Db, Tx } from '../db/db.service.js';
+import type { Database, Tx } from '../db/database.js';
 import {
   events,
   orders,
@@ -91,7 +90,7 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(BookingsService.name);
   private sweepTimer?: NodeJS.Timeout;
 
-  constructor(@Inject(DB) private readonly db: Db) {}
+  constructor(@InjectDrizzle() private readonly db: Database) {}
 
   onModuleInit(): void {
     this.sweepTimer = setInterval(() => {

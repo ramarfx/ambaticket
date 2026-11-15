@@ -121,6 +121,8 @@ Kalau nanti diminta campuran, yang berubah: tabel `order_items` (order_id, ticke
 
 Skema ditulis di TypeScript dengan Drizzle, SQL-nya dihasilkan `drizzle-kit generate`, dan migrasi dijalankan saat API boot. Query memakai query builder Drizzle, termasuk agregat, `case`, dan `for update`, jadi bentuk data dan tipe ikut terbaca dari kode.
 
+Koneksi memakai `DrizzleModule` dari `@nestjs/drizzle`, bukan modul buatan sendiri. Modul resmi itu membuat satu pool per aplikasi (penting karena tiap app di test e2e punya pool sendiri), menutup pool saat shutdown, dan memasang listener error pool supaya koneksi idle yang putus tidak mematikan proses. Migrasi dijalankan di dalam factory `forRootAsync`, jadi skema sudah siap sebelum provider pertama menyentuh database.
+
 Kenapa tidak `create table if not exists` saat boot: migrasi punya urutan dan riwayat, jadi perubahan skema berikutnya tidak menebak-nebak. Catatan jujur: dua replika yang boot bersamaan masih bisa balapan di migrasi. Untuk satu container ini aman. Kalau nanti di-scale, migrasi dipisah jadi job sebelum deploy.
 
 Aturan penting juga ditulis di database sebagai `CHECK`: jumlah tiket 1 sampai 4, status hanya empat nilai itu, harga dan kuota tidak negatif. Aplikasi tetap memvalidasi, tapi database adalah lapis terakhir yang tidak bisa dilewati kode yang salah.

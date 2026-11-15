@@ -1,7 +1,7 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { InjectDrizzle } from '@nestjs/drizzle';
 import { type SQL, desc, eq, inArray, sql } from 'drizzle-orm';
-import { DB } from '../db/db.module.js';
-import type { Db } from '../db/db.service.js';
+import type { Database } from '../db/database.js';
 import { events, orders, ticketTypes } from '../db/schema.js';
 import type { CreateEventInput } from './events.schema.js';
 
@@ -41,7 +41,7 @@ const typeStats = {
 
 @Injectable()
 export class EventsService {
-  constructor(@Inject(DB) private readonly db: Db) {}
+  constructor(@InjectDrizzle() private readonly db: Database) {}
 
   async create(input: CreateEventInput): Promise<EventView> {
     const eventId = await this.db.transaction(async (tx) => {
