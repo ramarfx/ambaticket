@@ -1,17 +1,20 @@
 import type { INestApplication } from '@nestjs/common';
 import { getDrizzleToken } from '@nestjs/drizzle';
 import { Test } from '@nestjs/testing';
+import type { Redis } from 'ioredis';
 import request from 'supertest';
 import type { App } from 'supertest/types.js';
 import { AppModule } from '../src/app.module.js';
 import { configureApp } from '../src/app.setup.js';
 import type { Database } from '../src/db/database.js';
-import { events, orders, paymentEvents, tickets, ticketTypes } from '../src/db/schema.js';
+import { buyerQuota, events, orders, paymentEvents, tickets, ticketTypes } from '../src/db/schema.js';
+import { REDIS } from '../src/redis/redis.module.js';
 
 export type TestContext = {
   app: INestApplication<App>;
   http: App;
   db: Database;
+  redis: Redis;
 };
 
 export async function createTestApp(): Promise<TestContext> {
@@ -20,15 +23,23 @@ export async function createTestApp(): Promise<TestContext> {
   configureApp(app);
   await app.init();
   await app.listen(0);
-  return { app, http: app.getHttpServer(), db: app.get<Database>(getDrizzleToken()) };
+  return {
+    app,
+    http: app.getHttpServer(),
+    db: app.get<Database>(getDrizzleToken()),
+    redis: app.get<Redis>(REDIS),
+  };
 }
 
-export async function resetDb(db: Database): Promise<void> {
-  await db.delete(paymentEvents);
-  await db.delete(tickets);
-  await db.delete(orders);
-  await db.delete(ticketTypes);
-  await db.delete(events);
+export async function resetDb(ctx: TestContext): Promise<void> {
+  await ctx.db.delete(paymentEvents);
+  await ctx.db.delete(tickets);
+  await ctx.db.delete(orders);
+  await ctx.db.delete(buyerQuota);
+  await ctx.db.delete(ticketTypes);
+  await ctx.db.delete(events);
+  // Rate limit dan antrean ikut direset supaya tiap test mulai dari jendela kosong.
+  await ctx.redis.flushdb();
 }
 
 export type SeededEvent = {

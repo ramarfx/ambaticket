@@ -1,7 +1,7 @@
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import request from 'supertest';
 import { BookingsService } from '../src/bookings/bookings.service.js';
-import { orders } from '../src/db/schema.js';
+import { buyerQuota, orders, ticketTypes } from '../src/db/schema.js';
 import {
   createTestApp,
   getEvent,
@@ -24,7 +24,7 @@ describe('Pesanan dan tiket', () => {
   });
 
   beforeEach(async () => {
-    await resetDb(ctx.db);
+    await resetDb(ctx);
   });
 
   it('alur pesan sampai tiket terbit dengan kode unik', async () => {
@@ -135,7 +135,7 @@ describe('Pesanan dan tiket', () => {
     await order(ctx.http, 'buyer-1', event.reguler.id, 3).expect(201);
   });
 
-  it('pesanan kedaluwarsa mengembalikan kuota dan tidak bisa dibayar', async () => {
+  it('sweeper melepas kuota pesanan yang sudah kedaluwarsa', async () => {
     const event = await seedEvent(ctx.http, 2, 1);
     const created = await order(ctx.http, 'buyer-1', event.reguler.id, 2).expect(201);
 
@@ -144,24 +144,103 @@ describe('Pesanan dan tiket', () => {
       .set({ expiresAt: sql`now() - interval '1 minute'` })
       .where(eq(orders.id, created.body.id));
 
+    const swept = await ctx.app.get(BookingsService).expireStale();
+    expect(swept).toBe(1);
+
     const detail = await getEvent(ctx.http, event.id).expect(200);
     expect(typeOf(detail.body, 'Reguler')).toMatchObject({ held: 0, remaining: 2 });
 
-    const mine = await request(ctx.http)
-      .get(`/orders/${created.body.id}`)
-      .set('x-buyer-id', 'buyer-1')
-      .expect(200);
-    expect(mine.body.status).toBe('expired');
+    const [row] = await ctx.db.select().from(orders).where(eq(orders.id, created.body.id));
+    expect(row.status).toBe('expired');
 
     const rejected = await pay(ctx.http, created.body.id).expect(409);
     expect(rejected.body.code).toBe('order_expired');
 
     await order(ctx.http, 'buyer-2', event.reguler.id, 2).expect(201);
+  });
 
-    const swept = await ctx.app.get(BookingsService).expireStale();
-    expect(swept).toBe(1);
+  it('kuota pesanan kedaluwarsa dilepas saat pembeli lain memesan, tanpa menunggu sweeper', async () => {
+    const event = await seedEvent(ctx.http, 2, 1);
+    const created = await order(ctx.http, 'buyer-1', event.reguler.id, 2).expect(201);
+
+    await ctx.db
+      .update(orders)
+      .set({ expiresAt: sql`now() - interval '1 minute'` })
+      .where(eq(orders.id, created.body.id));
+
+    // Counter masih menahan 2 unit sampai ada permintaan yang memicu perbaikan.
+    expect(await counters(ctx, event.reguler.id)).toEqual({ held: 2, sold: 0 });
+
+    await order(ctx.http, 'buyer-2', event.reguler.id, 2).expect(201);
+
+    expect(await counters(ctx, event.reguler.id)).toEqual({ held: 2, sold: 0 });
     const [row] = await ctx.db.select().from(orders).where(eq(orders.id, created.body.id));
     expect(row.status).toBe('expired');
+
+    const swept = await ctx.app.get(BookingsService).expireStale();
+    expect(swept).toBe(0);
+  });
+
+  it('counter penjaga selalu sama dengan pesanan yang masih hidup', async () => {
+    const event = await seedEvent(ctx.http, 10, 4);
+
+    const created = await order(ctx.http, 'buyer-1', event.reguler.id, 2).expect(201);
+    expect(await counters(ctx, event.reguler.id)).toEqual({ held: 2, sold: 0 });
+
+    await pay(ctx.http, created.body.id).expect(200);
+    expect(await counters(ctx, event.reguler.id)).toEqual({ held: 0, sold: 2 });
+
+    const second = await order(ctx.http, 'buyer-2', event.reguler.id, 1).expect(201);
+    await request(ctx.http)
+      .post(`/orders/${second.body.id}/cancel`)
+      .set('x-buyer-id', 'buyer-2')
+      .expect(200);
+    expect(await counters(ctx, event.reguler.id)).toEqual({ held: 0, sold: 2 });
+
+    const [buyer] = await ctx.db
+      .select({ liveUnits: buyerQuota.liveUnits })
+      .from(buyerQuota)
+      .where(and(eq(buyerQuota.eventId, event.id), eq(buyerQuota.buyerId, 'buyer-1')));
+    expect(buyer.liveUnits).toBe(2);
+  });
+
+  it('Idempotency-Key yang sama mengembalikan pesanan yang sama tanpa menambah kuota', async () => {
+    const event = await seedEvent(ctx.http, 10, 4);
+    const send = () =>
+      request(ctx.http)
+        .post('/orders')
+        .set('x-buyer-id', 'buyer-1')
+        .set('idempotency-key', 'checkout-1')
+        .send({ ticketTypeId: event.reguler.id, quantity: 2 });
+
+    const first = await send().expect(201);
+    const second = await send().expect(201);
+    expect(second.body.id).toBe(first.body.id);
+    expect(await counters(ctx, event.reguler.id)).toEqual({ held: 2, sold: 0 });
+
+    const other = await request(ctx.http)
+      .post('/orders')
+      .set('x-buyer-id', 'buyer-1')
+      .set('idempotency-key', 'checkout-2')
+      .send({ ticketTypeId: event.reguler.id, quantity: 2 })
+      .expect(201);
+    expect(other.body.id).not.toBe(first.body.id);
+    expect(await counters(ctx, event.reguler.id)).toEqual({ held: 4, sold: 0 });
+  });
+
+  it('dua permintaan bersamaan dengan Idempotency-Key yang sama menghasilkan satu pesanan', async () => {
+    const event = await seedEvent(ctx.http, 10, 4);
+    const send = () =>
+      request(ctx.http)
+        .post('/orders')
+        .set('x-buyer-id', 'buyer-1')
+        .set('idempotency-key', 'checkout-bersamaan')
+        .send({ ticketTypeId: event.reguler.id, quantity: 2 });
+
+    const [first, second] = await Promise.all([send(), send()]);
+    expect([first.status, second.status]).toEqual([201, 201]);
+    expect(first.body.id).toBe(second.body.id);
+    expect(await counters(ctx, event.reguler.id)).toEqual({ held: 2, sold: 0 });
   });
 
   it('bayar dua kali tetap satu set tiket', async () => {
@@ -201,4 +280,12 @@ describe('Pesanan dan tiket', () => {
 
 function typeOf(body: any, name: string) {
   return body.ticketTypes.find((type: { name: string }) => type.name === name);
+}
+
+async function counters(ctx: TestContext, ticketTypeId: string) {
+  const [row] = await ctx.db
+    .select({ held: ticketTypes.heldUnits, sold: ticketTypes.soldUnits })
+    .from(ticketTypes)
+    .where(eq(ticketTypes.id, ticketTypeId));
+  return { held: row.held, sold: row.sold };
 }

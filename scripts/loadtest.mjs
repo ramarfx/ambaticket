@@ -1,8 +1,10 @@
-// Uji 200 pesanan bersamaan untuk kuota 100, dijalankan ke API yang sedang hidup:
-//   node scripts/loadtest.mjs   (atau: bun scripts/loadtest.mjs)
+// Uji pesanan bersamaan untuk kuota terbatas, dijalankan ke API yang sedang hidup:
+//   node scripts/loadtest.mjs
+//   BUYERS=500 QUOTA=500 node scripts/loadtest.mjs
+// Batas rate limit per IP (default 1000 per menit) ikut menentukan; jalankan sekali per menit.
 const api = process.env.API ?? 'http://localhost:3000';
-const quota = 100;
-const buyers = 200;
+const quota = Number(process.env.QUOTA ?? 100);
+const buyers = Number(process.env.BUYERS ?? 200);
 
 async function post(path, body, buyerId) {
   const response = await fetch(`${api}${path}`, {
@@ -47,6 +49,6 @@ console.log(`sisa kuota      : ${stock.remaining}, terjual ${stock.sold}, ditaha
 console.log(`waktu total     : ${elapsed} ms`);
 console.log(
   accepted.length === quota && rejected.length === buyers - quota && stock.remaining === 0
-    ? 'HASIL: tepat 100 terjual, tidak ada oversell'
+    ? `HASIL: tepat ${quota} terjual, tidak ada oversell`
     : 'HASIL: TIDAK SESUAI HARAPAN',
 );

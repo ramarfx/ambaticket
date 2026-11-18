@@ -31,7 +31,7 @@ describe('Webhook pembayaran', () => {
   });
 
   beforeEach(async () => {
-    await resetDb(ctx.db);
+    await resetDb(ctx);
   });
 
   it('menolak tanda tangan yang salah', async () => {

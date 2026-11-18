@@ -3,6 +3,7 @@ name: ambaticket
 services:
   db:
     image: postgres:17-alpine
+    restart: unless-stopped
     environment:
       POSTGRES_USER: ambaticket
       POSTGRES_PASSWORD: ambaticket
@@ -18,18 +19,56 @@ services:
       timeout: 3s
       retries: 20
 
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    # Antrean tidak boleh kehilangan job: AOF everysec, bukan snapshot.
+    command: ["redis-server", "--appendonly", "yes", "--appendfsync", "everysec"]
+    volumes:
+      - redisdata:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
   api:
+    restart: unless-stopped
     build:
       context: .
       target: runtime
     environment:
       DATABASE_URL: postgres://ambaticket:ambaticket@db:5432/ambaticket
+      REDIS_URL: redis://redis:6379/0
       PAYMENT_WEBHOOK_SECRET: dev-webhook-secret
       ORDER_TTL_SECONDS: 900
     ports:
       - "3000:3000"
     depends_on:
       db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    restart: unless-stopped
+    build:
+      context: .
+      target: runtime
+    command: ["bun", "dist/worker.js"]
+    environment:
+      DATABASE_URL: postgres://ambaticket:ambaticket@db:5432/ambaticket
+      REDIS_URL: redis://redis:6379/0
+      PAYMENT_WEBHOOK_SECRET: dev-webhook-secret
+      ORDER_TTL_SECONDS: 900
+      # Hanya API yang menjalankan migrasi, supaya worker tidak balapan DDL.
+      DB_MIGRATE: "false"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
 
   test:
@@ -39,10 +78,14 @@ services:
       target: test
     environment:
       DATABASE_URL: postgres://ambaticket:ambaticket@db:5432/ambaticket_test
+      REDIS_URL: redis://redis:6379/1
       PAYMENT_WEBHOOK_SECRET: dev-webhook-secret
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_healthy
 
 volumes:
   pgdata:
+  redisdata:

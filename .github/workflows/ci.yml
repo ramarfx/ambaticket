@@ -9,6 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       DATABASE_URL: postgres://ambaticket:ambaticket@localhost:5432/ambaticket_test
+      REDIS_URL: redis://localhost:6379/1
       PAYMENT_WEBHOOK_SECRET: dev-webhook-secret
     services:
       postgres:
@@ -21,6 +22,15 @@ jobs:
           - 5432:5432
         options: >-
           --health-cmd "pg_isready -U ambaticket -d ambaticket_test"
+          --health-interval 3s
+          --health-timeout 3s
+          --health-retries 20
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
           --health-interval 3s
           --health-timeout 3s
           --health-retries 20

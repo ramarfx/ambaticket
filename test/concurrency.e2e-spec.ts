@@ -1,5 +1,5 @@
 import { and, eq, sql } from 'drizzle-orm';
-import { orders } from '../src/db/schema.js';
+import { orders, ticketTypes } from '../src/db/schema.js';
 import { createTestApp, getEvent, order, resetDb, seedEvent, type TestContext } from './helpers.js';
 
 describe('Kuota di bawah tekanan', () => {
@@ -14,7 +14,7 @@ describe('Kuota di bawah tekanan', () => {
   });
 
   beforeEach(async () => {
-    await resetDb(ctx.db);
+    await resetDb(ctx);
   });
 
   it('200 pesanan bersamaan untuk kuota 100 berakhir tepat 100', async () => {
@@ -42,6 +42,12 @@ describe('Kuota di bawah tekanan', () => {
       .from(orders)
       .where(eq(orders.ticketTypeId, event.reguler.id));
     expect(total.quantity).toBe(100);
+
+    const [counter] = await ctx.db
+      .select({ held: ticketTypes.heldUnits, sold: ticketTypes.soldUnits })
+      .from(ticketTypes)
+      .where(eq(ticketTypes.id, event.reguler.id));
+    expect(counter).toEqual({ held: 100, sold: 0 });
   });
 
   it('10 pesanan bersamaan dari satu pembeli berhenti di 4 tiket', async () => {
