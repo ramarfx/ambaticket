@@ -124,7 +124,7 @@ Yang diuji: alur pesan sampai tiket, kuota habis, batal mengembalikan kuota, bat
 
 ## Bukti 200 pesanan bersamaan
 
-`scripts/loadtest.mjs` menembak API yang sedang hidup: 200 pesanan untuk kuota 100.
+`scripts/loadtest.mjs` menembak API yang sedang hidup: 200 pesanan untuk kuota 100, lalu membayar semua yang diterima dan memeriksa stok akhir.
 
 ```bash
 node scripts/loadtest.mjs
@@ -136,12 +136,16 @@ Hasil nyata dari mesin ini (Docker, PostgreSQL 17):
 permintaan      : 200 bersamaan, kuota 100
 diterima (201)  : 100
 ditolak (409)   : 100
-sisa kuota      : 0, terjual 0, ditahan 100
-waktu total     : 2505 ms
-HASIL: tepat 100 terjual, tidak ada oversell
+dibayar (200)   : 100
+tiket terbit    : 100
+stok akhir      : terjual 100, ditahan 0, sisa 0
+waktu burst     : 2270 ms
+HASIL: tepat 100 tiket terjual dan terbit, tidak ada oversell
 ```
 
-Test yang sama juga jalan di CI: `test/concurrency.e2e-spec.ts` menegaskan tepat 100 diterima, 100 ditolak `sold_out`, dan jumlah tiket tersimpan 100.
+Script keluar dengan kode 0 kalau semua angka cocok, dan 1 kalau ada yang meleset.
+
+Test yang sama juga jalan di CI: `test/concurrency.e2e-spec.ts` menegaskan tepat 100 diterima, 100 ditolak `sold_out`, stok berakhir `sold 0, held 100, remaining 0`, dan total kuantitas pesanan yang tersimpan tepat 100. Test itu berhenti sebelum pembayaran, jadi yang dibuktikan di sana adalah kuota tidak oversell, bukan tiket terbit.
 
 ## CI/CD
 

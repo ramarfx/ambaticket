@@ -1,20 +1,24 @@
 // Uji 200 pesanan bersamaan untuk kuota 100, dijalankan ke API yang sedang hidup:
 //   node scripts/loadtest.mjs   (atau: bun scripts/loadtest.mjs)
+// Alurnya: burst pesan, bayar semua yang diterima, lalu pastikan stok berakhir
+// terjual 100, ditahan 0, sisa 0, dengan 100 tiket terbit.
 const api = process.env.API ?? 'http://localhost:3000';
 const quota = 100;
 const buyers = 200;
 
-async function post(path, body, buyerId) {
+async function send(method, path, body, buyerId) {
   const response = await fetch(`${api}${path}`, {
-    method: 'POST',
+    method,
     headers: {
       'content-type': 'application/json',
       ...(buyerId ? { 'x-buyer-id': buyerId } : {}),
     },
-    body: JSON.stringify(body),
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
   return { status: response.status, body: await response.json() };
 }
+
+const post = (path, body, buyerId) => send('POST', path, body, buyerId);
 
 const event = await post('/events', {
   name: `Load test ${new Date().toISOString()}`,
@@ -37,20 +41,39 @@ const elapsed = Date.now() - startedAt;
 
 const accepted = results.filter((result) => result.status === 201);
 const rejected = results.filter((result) => result.status === 409);
-const detail = await (await fetch(`${api}/events/${event.body.id}`)).json();
-const stock = detail.ticketTypes.find((type) => type.name === 'Reguler');
+
+const paid = await Promise.all(
+  accepted.map((result) => post(`/orders/${result.body.id}/pay`)),
+);
+const ticketsIssued = paid.reduce(
+  (total, result) => total + (result.body.tickets?.length ?? 0),
+  0,
+);
+
+const detail = await send('GET', `/events/${event.body.id}`);
+const stock = detail.body.ticketTypes.find((type) => type.name === 'Reguler');
+
+const ok =
+  accepted.length === quota &&
+  rejected.length === buyers - quota &&
+  paid.every((result) => result.status === 200) &&
+  ticketsIssued === quota &&
+  stock.sold === quota &&
+  stock.held === 0 &&
+  stock.remaining === 0;
 
 console.log(`permintaan      : ${buyers} bersamaan, kuota ${quota}`);
 console.log(`diterima (201)  : ${accepted.length}`);
 console.log(`ditolak (409)   : ${rejected.length}`);
+console.log(`dibayar (200)   : ${paid.filter((r) => r.status === 200).length}`);
+console.log(`tiket terbit    : ${ticketsIssued}`);
 console.log(
-  `sisa kuota      : ${stock.remaining}, terjual ${stock.sold}, ditahan ${stock.held}`,
+  `stok akhir      : terjual ${stock.sold}, ditahan ${stock.held}, sisa ${stock.remaining}`,
 );
-console.log(`waktu total     : ${elapsed} ms`);
+console.log(`waktu burst     : ${elapsed} ms`);
 console.log(
-  accepted.length === quota &&
-    rejected.length === buyers - quota &&
-    stock.remaining === 0
-    ? 'HASIL: tepat 100 terjual, tidak ada oversell'
+  ok
+    ? `HASIL: tepat ${quota} tiket terjual dan terbit, tidak ada oversell`
     : 'HASIL: TIDAK SESUAI HARAPAN',
 );
+process.exitCode = ok ? 0 : 1;
