@@ -10,10 +10,15 @@ Syarat: Docker dan Docker Compose.
 
 ```bash
 git clone <repo> && cd ambaticket
-docker compose up --build
+docker compose up --build -d
 ```
 
-API hidup di `http://localhost:3000`. Perintah itu menyalakan database (dengan healthcheck), menjalankan migrasi, lalu API. Cek dengan:
+Perintah itu menyalakan empat bagian: database PostgreSQL dengan healthcheck, tiga replika API, dan nginx yang menyajikan frontend sekaligus menjadi pintu masuk API.
+
+- API: `http://localhost:3000`
+- Frontend: `http://localhost:8081`
+
+Cek API dengan:
 
 ```bash
 curl localhost:3000
@@ -21,6 +26,29 @@ curl localhost:3000
 ```
 
 Catatan: kalau sebelumnya pernah ada volume `pgdata` lama, jalankan `docker compose down -v` sekali supaya database awal dan database test dibuat ulang.
+
+## Arsitektur container
+
+`docker compose` menjalankan:
+
+- `db`: PostgreSQL 17 dengan healthcheck.
+- `api`: tiga replika NestJS dari image yang sama (`deploy.replicas: 3`). Tidak membuka port host, hanya lewat nginx.
+- `web`: nginx yang menyajikan hasil build frontend dan meneruskan `/api/` ke replika API.
+
+Nginx membuka dua pintu:
+
+- `localhost:3000` untuk API. Alamat lama tetap berlaku, semua request dibagi rata ke replika.
+- `localhost:8081` untuk frontend. Berkas statis disajikan langsung, `/api/` diteruskan ke upstream yang sama.
+
+Jumlah replika bisa diubah, misalnya:
+
+```bash
+docker compose up -d --scale api=5
+```
+
+Bukti request terbagi: jalankan `curl -i localhost:3000/` beberapa kali dan lihat header `X-Api-Upstream`. Alamatnya berganti antar replika.
+
+Replika aman karena kuota dijaga row lock PostgreSQL di dalam transaksi, bukan state di memori proses. Migrasi saat start dikunci `pg_advisory_lock`, jadi tiga replika yang hidup bersamaan tidak saling menabrak. Sweeper pesanan kedaluwarsa jalan di tiap replika, tetapi operasinya idempoten.
 
 ## Frontend demo
 
@@ -138,7 +166,7 @@ Yang diuji: alur pesan sampai tiket, kuota habis, batal mengembalikan kuota, bat
 node scripts/loadtest.mjs
 ```
 
-Hasil nyata dari mesin ini (Docker, PostgreSQL 17):
+Hasil nyata dari mesin ini (Docker, PostgreSQL 17), lewat nginx ke tiga replika API:
 
 ```
 permintaan      : 200 bersamaan, kuota 100
@@ -147,11 +175,11 @@ ditolak (409)   : 100
 dibayar (200)   : 100
 tiket terbit    : 100
 stok akhir      : terjual 100, ditahan 0, sisa 0
-waktu burst     : 2270 ms
+waktu burst     : 901 ms
 HASIL: tepat 100 tiket terjual dan terbit, tidak ada oversell
 ```
 
-Script keluar dengan kode 0 kalau semua angka cocok, dan 1 kalau ada yang meleset.
+Script keluar dengan kode 0 kalau semua angka cocok, dan 1 kalau ada yang meleset. Alamat default `http://localhost:3000`, yang di bawah compose adalah nginx sehingga request dibagi ke tiga replika. Tanpa compose, alamat yang sama langsung menunjuk satu proses API.
 
 Test yang sama juga jalan di CI: `test/concurrency.e2e-spec.ts` menegaskan tepat 100 diterima, 100 ditolak `sold_out`, stok berakhir `sold 0, held 100, remaining 0`, dan total kuantitas pesanan yang tersimpan tepat 100. Test itu berhenti sebelum pembayaran, jadi yang dibuktikan di sana adalah kuota tidak oversell, bukan tiket terbit.
 

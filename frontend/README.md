@@ -19,6 +19,15 @@ bun run dev
 
 Buka `http://localhost:5173`. Vite mem-proxy `/api` ke `localhost:3000`, jadi backend tidak perlu diubah untuk CORS.
 
+## Jalankan dalam container
+
+Dari root repo, `docker compose up --build -d` ikut membangun frontend ini menjadi image nginx:
+
+- `frontend/Dockerfile`: stage Bun menjalankan `bun run build`, hasil `dist` disalin ke image `nginx:alpine`.
+- `frontend/nginx.conf`: menyajikan berkas statis, meneruskan `/api/` ke replika API, dan memberi cache panjang untuk `/assets/`.
+
+Alamatnya `http://localhost:8081` saat dijalankan lewat compose. Vite tidak dipakai di container, jadi tidak ada hot reload, tetapi hasilnya satu perintah untuk seluruh sistem.
+
 ## Catatan demo
 
 - Identitas pembeli disimpan di `localStorage` dan dikirim lewat header `x-buyer-id`. Parameter `?buyer=` menimpa nilai itu per tab.

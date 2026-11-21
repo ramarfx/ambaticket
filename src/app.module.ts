@@ -3,6 +3,7 @@ import { DrizzleModule } from '@nestjs/drizzle';
 import { createObserveModule } from '@nestjs/observe';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
+import { Client } from 'pg';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 import { BookingsModule } from './bookings/bookings.module.js';
@@ -30,10 +31,23 @@ const DEFAULT_URL =
 // yang ditutup saat app.close(). Migrasi dijalankan di sini supaya skema siap sebelum query.
 const database = DrizzleModule.forRootAsync({
   useFactory: async () => {
-    const db = drizzle(process.env.DATABASE_URL ?? DEFAULT_URL, { schema });
-    await migrate(db, { migrationsFolder: 'drizzle' });
+    const url = process.env.DATABASE_URL ?? DEFAULT_URL;
+
+    // Replika start bersamaan, jadi migrasi dikunci advisory lock dan dijalankan
+    // di koneksi sendiri. Kunci lepas saat sesi ditutup.
+    const client = new Client({ connectionString: url });
+    await client.connect();
+    try {
+      await client.query('select pg_advisory_lock(742001)');
+      await migrate(drizzle(client, { schema }), {
+        migrationsFolder: 'drizzle',
+      });
+    } finally {
+      await client.end();
+    }
+
     new Logger('Database').log('skema siap');
-    return { db };
+    return { db: drizzle(url, { schema }) };
   },
 });
 
