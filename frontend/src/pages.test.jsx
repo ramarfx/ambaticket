@@ -5,6 +5,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 const state = { data: null };
 
 globalThis.localStorage = { getItem: () => null, setItem: () => {} };
+globalThis.window = { location: { search: '', hash: '' } };
 
 mock.module('./hooks.js', () => ({
   useApi: () => ({

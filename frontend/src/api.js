@@ -1,7 +1,13 @@
 const key = 'ambaticket.buyerId';
 
-export const buyerId = localStorage.getItem(key) ?? crypto.randomUUID();
-localStorage.setItem(key, buyerId);
+// Identitas default di localStorage, bisa ditimpa per tab lewat ?buyer= agar
+// beberapa tab bisa menjadi pembeli berbeda untuk demo.
+export const storedBuyerId =
+  localStorage.getItem(key) ?? crypto.randomUUID();
+localStorage.setItem(key, storedBuyerId);
+
+export const buyerId =
+  new URLSearchParams(window.location.search).get('buyer') ?? storedBuyerId;
 
 async function request(path, options = {}) {
   const response = await fetch(`/api${path}`, {

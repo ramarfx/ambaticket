@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
-import { buyerId } from './api.js';
+import { buyerId, storedBuyerId } from './api.js';
 import CreateEventPage from './pages/CreateEventPage.jsx';
 import EventDetailPage from './pages/EventDetailPage.jsx';
 import EventsPage from './pages/EventsPage.jsx';
 import OrdersPage from './pages/OrdersPage.jsx';
 import TicketsPage from './pages/TicketsPage.jsx';
-import { PageHeader, btnGhost } from './ui.jsx';
+import { PageHeader, btnGhost, field } from './ui.jsx';
 
 const nav = [
   { href: '#/', label: 'Event' },
@@ -13,6 +13,30 @@ const nav = [
   { href: '#/tickets', label: 'Tiket saya' },
   { href: '#/events/new', label: 'Buat event' },
 ];
+
+const demoBuyers = ['demo-1', 'demo-2', 'demo-3'];
+
+function buyerOptions(current) {
+  const options = [
+    {
+      id: storedBuyerId,
+      label: `pembeli saya (${storedBuyerId.slice(0, 8)})`,
+    },
+    ...demoBuyers.map((id) => ({ id, label: id })),
+  ];
+  return options.some((option) => option.id === current)
+    ? options
+    : [{ id: current, label: `pembeli ${current.slice(0, 8)}` }, ...options];
+}
+
+// Reload halaman saat ganti pembeli, supaya api.js membaca ulang ?buyer=.
+function switchBuyer(next) {
+  const { pathname, hash } = window.location;
+  window.location.href =
+    next === storedBuyerId
+      ? `${pathname}${hash}`
+      : `${pathname}?buyer=${encodeURIComponent(next)}${hash}`;
+}
 
 // Router seadanya: cukup hash, tanpa dependensi tambahan.
 function useRoute() {
@@ -67,14 +91,9 @@ export default function App() {
     <div className="min-h-screen lg:grid lg:grid-cols-[15rem_1fr]">
       <aside className="border-b border-rule bg-card lg:sticky lg:top-0 lg:h-screen lg:border-r lg:border-b-0">
         <div className="flex h-full flex-col gap-3 p-4 lg:gap-6 lg:p-5">
-          <div className="flex items-center justify-between gap-4">
-            <a href="#/" className="text-lg font-semibold tracking-tight">
-              AmbaTicket
-            </a>
-            <p className="font-mono text-xs text-ink-muted lg:hidden">
-              {buyerId.slice(0, 8)}
-            </p>
-          </div>
+          <a href="#/" className="text-lg font-semibold tracking-tight">
+            AmbaTicket
+          </a>
           <nav
             aria-label="Navigasi utama"
             className="flex gap-1 overflow-x-auto lg:flex-col"
@@ -94,9 +113,23 @@ export default function App() {
               </a>
             ))}
           </nav>
-          <p className="mt-auto hidden font-mono text-xs break-all text-ink-muted lg:block">
-            pembeli {buyerId}
-          </p>
+          <div className="lg:mt-auto">
+            <label htmlFor="buyer" className="text-xs text-ink-muted">
+              Pembeli
+            </label>
+            <select
+              id="buyer"
+              className={`${field} mt-1`}
+              value={buyerId}
+              onChange={(event) => switchBuyer(event.target.value)}
+            >
+              {buyerOptions(buyerId).map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       </aside>
 
@@ -106,7 +139,7 @@ export default function App() {
         </main>
         <footer className="mx-auto max-w-4xl px-4 pb-8 text-xs text-ink-muted sm:px-6 lg:px-10">
           Pembayaran disimulasikan lewat endpoint /pay. Tidak ada autentikasi,
-          pembeli dikenali dari id di localStorage.
+          pembeli dikenali dari id di localStorage atau parameter ?buyer=.
         </footer>
       </div>
     </div>

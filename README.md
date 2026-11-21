@@ -34,6 +34,14 @@ bun run dev
 
 Buka `http://localhost:5173`. Vite mem-proxy `/api` ke `localhost:3000`, jadi backend tidak perlu diubah untuk CORS. Detailnya di [frontend/README.md](frontend/README.md).
 
+Untuk data demo yang enak dibaca (festival, konser, jazz), jalankan dari root repo:
+
+```bash
+node scripts/seed.mjs
+```
+
+Script aman dijalankan berulang: event dengan nama yang sama dilewati. Nama artisnya fiktif, silakan ganti di `scripts/seed.mjs`.
+
 ## Alur demo (copy paste)
 
 Butuh `curl` dan `jq`.
