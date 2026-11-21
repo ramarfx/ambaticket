@@ -29,6 +29,7 @@ const post = (path, input) =>
   });
 
 export const getEvents = () => request('/events');
+export const getEvent = (id) => request(`/events/${id}`);
 export const createEvent = (input) => post('/events', input);
 export const getOrders = () => request('/orders');
 export const createOrder = (input) => post('/orders', input);
