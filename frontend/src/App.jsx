@@ -4,6 +4,7 @@ import CreateEventPage from './pages/CreateEventPage.jsx';
 import EventDetailPage from './pages/EventDetailPage.jsx';
 import EventsPage from './pages/EventsPage.jsx';
 import OrdersPage from './pages/OrdersPage.jsx';
+import PaymentSimulatorPage from './pages/PaymentSimulatorPage.jsx';
 import TicketsPage from './pages/TicketsPage.jsx';
 import { PageHeader, btnGhost, field } from './ui.jsx';
 
@@ -59,7 +60,12 @@ function useRoute() {
 
 function isActive(href, route) {
   if (href === '#/') {
-    return route === '/' || (route.startsWith('/events/') && route !== '/events/new');
+    return (
+      route === '/' || (route.startsWith('/events/') && route !== '/events/new')
+    );
+  }
+  if (href === '#/orders') {
+    return route === '/orders' || route.startsWith('/pay/');
   }
   return route === href.slice(1);
 }
@@ -79,11 +85,13 @@ export default function App() {
   const route = useRoute();
 
   const detail = route.match(/^\/events\/([^/]+)$/);
+  const payMatch = route.match(/^\/pay\/([^/]+)$/);
 
   let page = <NotFound />;
   if (route === '/') page = <EventsPage />;
   else if (route === '/events/new') page = <CreateEventPage />;
   else if (detail) page = <EventDetailPage id={detail[1]} />;
+  else if (payMatch) page = <PaymentSimulatorPage orderId={payMatch[1]} />;
   else if (route === '/orders') page = <OrdersPage />;
   else if (route === '/tickets') page = <TicketsPage />;
 

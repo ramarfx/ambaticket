@@ -8,12 +8,7 @@ export default function OrdersPage() {
     const [orders, events] = await Promise.all([getOrders(), getEvents()]);
     return { orders, events };
   }, []);
-  const {
-    busy,
-    error: actionError,
-    notice,
-    run,
-  } = useAction();
+  const { busy, error: actionError, notice, run } = useAction();
 
   const eventById = new Map(
     (data?.events ?? []).map((event) => [event.id, event]),
@@ -46,7 +41,10 @@ export default function OrdersPage() {
       {!data?.orders.length ? (
         <Empty loading={loading} label="Belum ada pesanan." />
       ) : (
-        <section aria-label="Daftar pesanan" className="border border-rule bg-card">
+        <section
+          aria-label="Daftar pesanan"
+          className="border border-rule bg-card"
+        >
           <div className="hidden grid-cols-[minmax(0,1fr)_7rem_8rem_11rem] gap-4 border-b border-rule px-5 py-2 text-xs text-ink-muted md:grid">
             <span>Pesanan</span>
             <span>Total</span>
@@ -89,20 +87,9 @@ export default function OrdersPage() {
                   </p>
                   {order.status === 'pending' ? (
                     <div className="flex flex-wrap gap-2 md:justify-end">
-                      <button
-                        type="button"
-                        className={btnPrimary}
-                        disabled={busy === `pay-${order.id}`}
-                        onClick={() =>
-                          act(
-                            `pay-${order.id}`,
-                            () => payOrder(order.id),
-                            'Pembayaran diterima, tiket diterbitkan.',
-                          )
-                        }
-                      >
-                        {busy === `pay-${order.id}` ? 'Memproses...' : 'Bayar'}
-                      </button>
+                      <a href={`#/pay/${order.id}`} className={btnPrimary}>
+                        Bayar (Simulator)
+                      </a>
                       <button
                         type="button"
                         className={btnGhost}
