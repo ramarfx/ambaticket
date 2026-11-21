@@ -39,7 +39,7 @@ Urutan satu reservasi:
 
 Kenapa mengunci event, bukan tipe tiket: batas 4 tiket berlaku per event, bukan per tipe. Kalau yang dikunci hanya `ticket_types`, satu pembeli yang mengirim 3 Reguler dan 2 VIP pada saat bersamaan akan mengunci dua baris berbeda, dua-duanya membaca "belum punya tiket", dan dua-duanya lolos. Dengan kunci di event, keduanya antre di baris yang sama.
 
-Konsekuensinya: semua reservasi pada satu event berjalan bergantian. Antrean itu pendek karena transaksinya hanya beberapa query. Uji nyata: 200 pesanan bersamaan untuk kuota 100 selesai sekitar 2,5 detik dan berakhir tepat 100 diterima, 100 ditolak.
+Konsekuensinya: semua reservasi pada satu event berjalan bergantian. Antrean itu pendek karena transaksinya hanya beberapa query. Uji nyata: 200 pesanan bersamaan untuk kuota 100 selesai sekitar 900 ms sampai 2,5 detik dan berakhir tepat 100 diterima, 100 ditolak.
 
 Deadlock: transaksi hanya mengambil satu kunci, jadi tidak ada urutan kunci yang bisa dibalik. Ini alasan lain memilih satu kunci besar daripada beberapa kunci kecil.
 
@@ -123,7 +123,7 @@ Skema ditulis di TypeScript dengan Drizzle, SQL-nya dihasilkan `drizzle-kit gene
 
 Koneksi memakai `DrizzleModule` dari `@nestjs/drizzle`, bukan modul buatan sendiri. Modul resmi itu membuat satu pool per aplikasi (penting karena tiap app di test e2e punya pool sendiri), menutup pool saat shutdown, dan memasang listener error pool supaya koneksi idle yang putus tidak mematikan proses. Migrasi dijalankan di dalam factory `forRootAsync`, jadi skema sudah siap sebelum provider pertama menyentuh database.
 
-Kenapa tidak `create table if not exists` saat boot: migrasi punya urutan dan riwayat, jadi perubahan skema berikutnya tidak menebak-nebak. Catatan jujur: dua replika yang boot bersamaan masih bisa balapan di migrasi. Untuk satu container ini aman. Kalau nanti di-scale, migrasi dipisah jadi job sebelum deploy.
+Kenapa tidak `create table if not exists` saat boot: migrasi punya urutan dan riwayat, jadi perubahan skema berikutnya tidak menebak-nebak. Agar aman saat multi-replika boot bersamaan, migrasi dibungkus `pg_advisory_lock(742001)` pada koneksi PostgreSQL tersendiri di `app.module.ts`. Replika lain akan menunggu kunci lepas sebelum melanjutkan startup.
 
 Aturan penting juga ditulis di database sebagai `CHECK`: jumlah tiket 1 sampai 4, status hanya empat nilai itu, harga dan kuota tidak negatif. Aplikasi tetap memvalidasi, tapi database adalah lapis terakhir yang tidak bisa dilewati kode yang salah.
 
@@ -136,7 +136,7 @@ Aturan penting juga ditulis di database sebagai `CHECK`: jumlah tiket 1 sampai 4
 - Uji kedaluwarsa tidak menunggu 15 menit. Satu `UPDATE` menggeser `expires_at` ke masa lalu, lalu ditegaskan: kuota kembali, status efektif `expired`, pembayaran ditolak, pembeli lain bisa membeli, dan job menandai barisnya. Ini jujur karena semua predikat membaca waktu dari database.
 - Kalau `for update` dihapus, dua uji konkurensi itu gagal atau jadi flaky. Uji berurutan tetap hijau, dan itulah alasan uji konkurensi harus ada.
 
-Yang belum diuji: perubahan isolation level, dua replika yang boot bersamaan, dan beban di atas 200 permintaan.
+Yang belum diuji: perubahan isolation level dan beban di atas 200 permintaan. Boot tiga replika bersamaan sudah diuji dan aman dengan advisory lock.
 
 ## 11. Kalau skalanya 100 kali
 
@@ -145,13 +145,14 @@ Yang belum diuji: perubahan isolation level, dua replika yang boot bersamaan, da
 - Kedaluwarsa pindah ke Redis TTL atau delayed queue, bukan sweeper.
 - Webhook tetap butuh ledger idempotensi, ditambah rotasi secret dan batas waktu replay.
 
-## 12. Yang sengaja tidak dikerjakan
+## 12. Yang sengaja tidak dikerjakan di backend
 
-- Frontend. Tugas menyebutnya opsional, dan nilai utamanya di backend.
-- Autentikasi sungguhan.
+- Autentikasi sungguhan. Sesuai batasan lingkup, identitas pembeli menggunakan header `x-buyer-id` atau simulator di UI demo.
 - Idempotency key untuk `POST /orders`. Klik ganda menghasilkan dua pesanan pending. Dampaknya dibatasi batas 4 tiket dan kedaluwarsa 15 menit, jadi tidak worth satu tabel tambahan sekarang.
 - Rate limit per IP atau identitas. Satu pembeli hanya bisa menahan 4 tiket, tapi 50 identitas palsu bisa membekukan seluruh kuota selama 15 menit. Mitigasi termurah adalah rate limit per IP dan verifikasi identitas, dan itu butuh auth yang memang tidak dinilai di tugas ini.
 - Email tiket dan QR code.
+
+Catatan: Frontend demo (React, Tailwind, Nginx, simulator webhook) disediakan terpisah di folder `frontend/` untuk kemudahan pengujian visual.
 
 ## Jawaban singkat untuk demo
 
@@ -160,4 +161,4 @@ Yang belum diuji: perubahan isolation level, dua replika yang boot bersamaan, da
 - "Bagaimana kalau job kedaluwarsa mati?" Kuota tetap kembali sendiri, karena dihitung dari waktu. Job cuma merapikan label.
 - "Bagaimana kalau webhook dobel?" Row lock pada pesanan plus primary key event id. Kiriman kedua mendapat tiket yang sama.
 - "Bagaimana kalau webhook telat?" Dibalas 200, tidak ada tiket terbit, dan kursi yang sudah dijual ke orang lain tidak diganggu.
-- "Apa yang terjadi saat 200 orang memesan?" 100 diterima, 100 ditolak, sisa 0, sekitar 2,5 detik.
+- "Apa yang terjadi saat 200 orang memesan?" 100 diterima, 100 ditolak, sisa 0, sekitar 900 ms sampai 2,5 detik (tergantung load satu proses vs replika Nginx).
