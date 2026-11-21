@@ -10,8 +10,8 @@ const events = [
     venue: 'Gedung Kesenian Jakarta',
     startsAt: '2026-12-05T20:00:00+07:00',
     ticketTypes: [
-      { name: 'Reguler', priceIdr: 200_000, quota: 120 },
-      { name: 'Front Row', priceIdr: 400_000, quota: 40 },
+      { name: 'Reguler', priceIdr: 200_000, quota: 100 },
+      { name: 'Front Row', priceIdr: 400_000, quota: 3 },
     ],
   },
   {
@@ -19,8 +19,8 @@ const events = [
     venue: 'Lapangan Banteng, Jakarta',
     startsAt: '2026-12-12T15:00:00+07:00',
     ticketTypes: [
-      { name: 'Presale', priceIdr: 250_000, quota: 300 },
-      { name: 'Reguler', priceIdr: 350_000, quota: 500 },
+      { name: 'Presale', priceIdr: 250_000, quota: 50 },
+      { name: 'Reguler', priceIdr: 350_000, quota: 200 },
     ],
   },
   {
@@ -28,8 +28,8 @@ const events = [
     venue: 'Istora Senayan, Jakarta',
     startsAt: '2027-01-17T19:30:00+07:00',
     ticketTypes: [
-      { name: 'Tribune', priceIdr: 450_000, quota: 200 },
-      { name: 'VIP', priceIdr: 900_000, quota: 60 },
+      { name: 'Tribune', priceIdr: 450_000, quota: 100 },
+      { name: 'VIP', priceIdr: 900_000, quota: 3 },
     ],
   },
   {
@@ -37,8 +37,8 @@ const events = [
     venue: 'Lapangan Gasibu, Bandung',
     startsAt: '2027-02-07T16:00:00+07:00',
     ticketTypes: [
-      { name: 'Festival', priceIdr: 175_000, quota: 400 },
-      { name: 'VIP', priceIdr: 500_000, quota: 80 },
+      { name: 'Festival', priceIdr: 175_000, quota: 200 },
+      { name: 'VIP', priceIdr: 500_000, quota: 50 },
     ],
   },
 ];
