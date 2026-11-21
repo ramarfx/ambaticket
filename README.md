@@ -22,6 +22,18 @@ curl localhost:3000
 
 Catatan: kalau sebelumnya pernah ada volume `pgdata` lama, jalankan `docker compose down -v` sekali supaya database awal dan database test dibuat ulang.
 
+## Frontend demo
+
+Halaman demo React + Tailwind ada di `frontend/`. Nyalakan API dulu, lalu:
+
+```bash
+cd frontend
+bun install
+bun run dev
+```
+
+Buka `http://localhost:5173`. Vite mem-proxy `/api` ke `localhost:3000`, jadi backend tidak perlu diubah untuk CORS. Detailnya di [frontend/README.md](frontend/README.md).
+
 ## Alur demo (copy paste)
 
 Butuh `curl` dan `jq`.
@@ -220,6 +232,7 @@ drizzle/       migrasi SQL hasil drizzle-kit
 test/          test integrasi (Vitest + supertest)
 scripts/       loadtest 200 pesanan
 docker/        initdb untuk database test
+frontend/      halaman demo React + Tailwind
 ```
 
 ## Konfigurasi
