@@ -10,7 +10,10 @@ import {
 } from '@nestjs/common';
 import type { Request } from 'express';
 import { z } from 'zod';
-import { paymentWebhookSchema, type PaymentWebhookInput } from './payments.schema.js';
+import {
+  paymentWebhookSchema,
+  type PaymentWebhookInput,
+} from './payments.schema.js';
 import { PaymentsService } from './payments.service.js';
 
 @Controller()

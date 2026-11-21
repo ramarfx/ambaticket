@@ -1,7 +1,15 @@
-import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
 import { createHmac, timingSafeEqual } from 'node:crypto';
-import { BookingsService, type OrderView, type TicketView } from '../bookings/bookings.service.js';
+import {
+  BookingsService,
+  type OrderView,
+  type TicketView,
+} from '../bookings/bookings.service.js';
 import type { Database } from '../db/database.js';
 import type { PaymentWebhookInput } from './payments.schema.js';
 
@@ -23,7 +31,9 @@ export class PaymentsService {
 
   // Simulasi penyedia pembayaran: langsung melunasi pesanan.
   async pay(orderId: string): Promise<PaymentResult> {
-    const result = await this.db.transaction((tx) => this.bookings.settle(tx, orderId));
+    const result = await this.db.transaction((tx) =>
+      this.bookings.settle(tx, orderId),
+    );
     if (!result.applied) {
       throw new ConflictException({
         code: result.reason,
@@ -71,9 +81,15 @@ export class PaymentsService {
     };
   }
 
-  private signatureValid(rawBody: Buffer | undefined, signature: string | undefined): boolean {
+  private signatureValid(
+    rawBody: Buffer | undefined,
+    signature: string | undefined,
+  ): boolean {
     if (!rawBody || !signature) return false;
-    const expected = createHmac('sha256', process.env.PAYMENT_WEBHOOK_SECRET ?? 'dev-webhook-secret')
+    const expected = createHmac(
+      'sha256',
+      process.env.PAYMENT_WEBHOOK_SECRET ?? 'dev-webhook-secret',
+    )
       .update(rawBody)
       .digest('hex');
     const provided = signature.replace(/^sha256=/, '').toLowerCase();

@@ -182,12 +182,8 @@
           "name": "orders_event_id_events_id_fk",
           "tableFrom": "orders",
           "tableTo": "events",
-          "columnsFrom": [
-            "event_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["event_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -195,12 +191,8 @@
           "name": "orders_ticket_type_id_ticket_types_id_fk",
           "tableFrom": "orders",
           "tableTo": "ticket_types",
-          "columnsFrom": [
-            "ticket_type_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["ticket_type_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -250,12 +242,8 @@
           "name": "payment_events_order_id_orders_id_fk",
           "tableFrom": "payment_events",
           "tableTo": "orders",
-          "columnsFrom": [
-            "order_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["order_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -337,12 +325,8 @@
           "name": "ticket_types_event_id_events_id_fk",
           "tableFrom": "ticket_types",
           "tableTo": "events",
-          "columnsFrom": [
-            "event_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["event_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -427,12 +411,8 @@
           "name": "tickets_order_id_orders_id_fk",
           "tableFrom": "tickets",
           "tableTo": "orders",
-          "columnsFrom": [
-            "order_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["order_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -442,9 +422,7 @@
         "tickets_code_unique": {
           "name": "tickets_code_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "code"
-          ]
+          "columns": ["code"]
         }
       },
       "policies": {},

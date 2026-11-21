@@ -6,7 +6,13 @@ import type { App } from 'supertest/types.js';
 import { AppModule } from '../src/app.module.js';
 import { configureApp } from '../src/app.setup.js';
 import type { Database } from '../src/db/database.js';
-import { events, orders, paymentEvents, tickets, ticketTypes } from '../src/db/schema.js';
+import {
+  events,
+  orders,
+  paymentEvents,
+  tickets,
+  ticketTypes,
+} from '../src/db/schema.js';
 
 export type TestContext = {
   app: INestApplication<App>;
@@ -15,12 +21,20 @@ export type TestContext = {
 };
 
 export async function createTestApp(): Promise<TestContext> {
-  const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
-  const app = moduleRef.createNestApplication<INestApplication<App>>({ rawBody: true });
+  const moduleRef = await Test.createTestingModule({
+    imports: [AppModule],
+  }).compile();
+  const app = moduleRef.createNestApplication<INestApplication<App>>({
+    rawBody: true,
+  });
   configureApp(app);
   await app.init();
   await app.listen(0);
-  return { app, http: app.getHttpServer(), db: app.get<Database>(getDrizzleToken()) };
+  return {
+    app,
+    http: app.getHttpServer(),
+    db: app.get<Database>(getDrizzleToken()),
+  };
 }
 
 export async function resetDb(db: Database): Promise<void> {
@@ -55,14 +69,28 @@ export async function seedEvent(
     })
     .expect(201);
   const body = response.body;
-  const reguler = body.ticketTypes.find((type: { name: string }) => type.name === 'Reguler');
-  const vip = body.ticketTypes.find((type: { name: string }) => type.name === 'VIP');
+  const reguler = body.ticketTypes.find(
+    (type: { name: string }) => type.name === 'Reguler',
+  );
+  const vip = body.ticketTypes.find(
+    (type: { name: string }) => type.name === 'VIP',
+  );
   return { id: body.id, reguler, vip };
 }
 
-export const order = (http: App, buyerId: string, ticketTypeId: string, quantity = 1) =>
-  request(http).post('/orders').set('x-buyer-id', buyerId).send({ ticketTypeId, quantity });
+export const order = (
+  http: App,
+  buyerId: string,
+  ticketTypeId: string,
+  quantity = 1,
+) =>
+  request(http)
+    .post('/orders')
+    .set('x-buyer-id', buyerId)
+    .send({ ticketTypeId, quantity });
 
-export const pay = (http: App, orderId: string) => request(http).post(`/orders/${orderId}/pay`);
+export const pay = (http: App, orderId: string) =>
+  request(http).post(`/orders/${orderId}/pay`);
 
-export const getEvent = (http: App, eventId: string) => request(http).get(`/events/${eventId}`);
+export const getEvent = (http: App, eventId: string) =>
+  request(http).get(`/events/${eventId}`);

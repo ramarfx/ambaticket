@@ -16,7 +16,10 @@ describe('AppController', () => {
 
   describe('root', () => {
     it('laporan status', () => {
-      expect(appController.getStatus()).toEqual({ service: 'ambaticket', status: 'ok' });
+      expect(appController.getStatus()).toEqual({
+        service: 'ambaticket',
+        status: 'ok',
+      });
     });
   });
 });

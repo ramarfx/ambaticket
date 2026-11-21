@@ -47,11 +47,17 @@ export class EventsService {
     const eventId = await this.db.transaction(async (tx) => {
       const [event] = await tx
         .insert(events)
-        .values({ name: input.name, venue: input.venue, startsAt: new Date(input.startsAt) })
+        .values({
+          name: input.name,
+          venue: input.venue,
+          startsAt: new Date(input.startsAt),
+        })
         .returning({ id: events.id });
       await tx
         .insert(ticketTypes)
-        .values(input.ticketTypes.map((type) => ({ eventId: event.id, ...type })));
+        .values(
+          input.ticketTypes.map((type) => ({ eventId: event.id, ...type })),
+        );
       return event.id;
     });
     return this.findOne(eventId);
@@ -70,10 +76,17 @@ export class EventsService {
       .orderBy(events.startsAt, events.createdAt);
     if (rows.length === 0) return [];
 
-    const stats = await this.statsOf(inArray(ticketTypes.eventId, rows.map((row) => row.id)));
+    const stats = await this.statsOf(
+      inArray(
+        ticketTypes.eventId,
+        rows.map((row) => row.id),
+      ),
+    );
     return rows.map((event) => ({
       ...event,
-      ticketTypes: stats.filter((type) => type.eventId === event.id).map(toTicketTypeView),
+      ticketTypes: stats
+        .filter((type) => type.eventId === event.id)
+        .map(toTicketTypeView),
     }));
   }
 
@@ -89,9 +102,17 @@ export class EventsService {
       .from(events)
       .where(eq(events.id, id));
     if (!event) {
-      throw new NotFoundException({ code: 'event_not_found', message: 'Event tidak ditemukan.' });
+      throw new NotFoundException({
+        code: 'event_not_found',
+        message: 'Event tidak ditemukan.',
+      });
     }
-    return { ...event, ticketTypes: (await this.statsOf(eq(ticketTypes.eventId, id))).map(toTicketTypeView) };
+    return {
+      ...event,
+      ticketTypes: (await this.statsOf(eq(ticketTypes.eventId, id))).map(
+        toTicketTypeView,
+      ),
+    };
   }
 
   private statsOf(where: SQL) {
@@ -105,7 +126,9 @@ export class EventsService {
   }
 }
 
-const toTicketTypeView = (row: Omit<TicketTypeView, 'remaining'>): TicketTypeView => ({
+const toTicketTypeView = (
+  row: Omit<TicketTypeView, 'remaining'>,
+): TicketTypeView => ({
   ...row,
   remaining: row.quota - row.sold - row.held,
 });

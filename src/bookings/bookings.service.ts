@@ -42,7 +42,12 @@ export type TicketView = {
 };
 
 export type SettleResult =
-  | { applied: true; duplicate: boolean; order: OrderView; tickets: TicketView[] }
+  | {
+      applied: true;
+      duplicate: boolean;
+      order: OrderView;
+      tickets: TicketView[];
+    }
   | {
       applied: false;
       duplicate: boolean;
@@ -81,7 +86,8 @@ const ticketView = {
   issuedAt: tickets.issuedAt,
 };
 
-const ticketCode = (): string => `TKT-${randomBytes(6).toString('hex').toUpperCase()}`;
+const ticketCode = (): string =>
+  `TKT-${randomBytes(6).toString('hex').toUpperCase()}`;
 
 const ttlSeconds = (): number => Number(process.env.ORDER_TTL_SECONDS ?? 900);
 
@@ -130,7 +136,9 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
         .for('update');
 
       const [active] = await tx
-        .select({ total: sql<number>`coalesce(sum(${orders.quantity}), 0)::int` })
+        .select({
+          total: sql<number>`coalesce(sum(${orders.quantity}), 0)::int`,
+        })
         .from(orders)
         .where(
           and(
@@ -150,7 +158,9 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
       }
 
       const [reserved] = await tx
-        .select({ total: sql<number>`coalesce(sum(${orders.quantity}), 0)::int` })
+        .select({
+          total: sql<number>`coalesce(sum(${orders.quantity}), 0)::int`,
+        })
         .from(orders)
         .where(and(eq(orders.ticketTypeId, input.ticketTypeId), liveOrder()));
       const remaining = ticketType.quota - reserved.total;
@@ -188,7 +198,10 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
       .limit(200);
   }
 
-  async findMine(buyerId: string, orderId: string): Promise<OrderView & { tickets: TicketView[] }> {
+  async findMine(
+    buyerId: string,
+    orderId: string,
+  ): Promise<OrderView & { tickets: TicketView[] }> {
     return this.db.transaction(async (tx) => {
       const [order] = await tx
         .select(orderView)
@@ -225,7 +238,8 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
       }
       if (order.status !== 'pending') {
         throw new ConflictException({
-          code: order.status === 'expired' ? 'order_expired' : 'order_cancelled',
+          code:
+            order.status === 'expired' ? 'order_expired' : 'order_cancelled',
           message: 'Pesanan sudah tidak aktif.',
         });
       }
@@ -271,10 +285,16 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
       .where(eq(orders.id, orderId))
       .for('update');
     if (!order) {
-      throw new NotFoundException({ code: 'order_not_found', message: 'Pesanan tidak ditemukan.' });
+      throw new NotFoundException({
+        code: 'order_not_found',
+        message: 'Pesanan tidak ditemukan.',
+      });
     }
 
-    if (options.amountIdr !== undefined && options.amountIdr !== order.totalIdr) {
+    if (
+      options.amountIdr !== undefined &&
+      options.amountIdr !== order.totalIdr
+    ) {
       throw new ConflictException({
         code: 'amount_mismatch',
         message: `Nominal ${options.amountIdr} tidak sama dengan total pesanan ${order.totalIdr}.`,
@@ -307,7 +327,8 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
         applied: false,
         duplicate,
         order,
-        reason: order.status === 'expired' ? 'order_expired' : 'order_cancelled',
+        reason:
+          order.status === 'expired' ? 'order_expired' : 'order_cancelled',
       };
     }
 
@@ -340,13 +361,20 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
     const expired = await this.db
       .update(orders)
       .set({ status: 'expired' })
-      .where(and(eq(orders.status, 'pending'), sql`${orders.expiresAt} <= now()`))
+      .where(
+        and(eq(orders.status, 'pending'), sql`${orders.expiresAt} <= now()`),
+      )
       .returning({ id: orders.id });
-    if (expired.length) this.logger.log(`${expired.length} pesanan kedaluwarsa ditandai`);
+    if (expired.length)
+      this.logger.log(`${expired.length} pesanan kedaluwarsa ditandai`);
     return expired.length;
   }
 
   private async ticketsOfOrder(tx: Tx, orderId: string): Promise<TicketView[]> {
-    return tx.select(ticketView).from(tickets).where(eq(tickets.orderId, orderId)).orderBy(tickets.seatNo);
+    return tx
+      .select(ticketView)
+      .from(tickets)
+      .where(eq(tickets.orderId, orderId))
+      .orderBy(tickets.seatNo);
   }
 }

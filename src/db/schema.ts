@@ -11,10 +11,16 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core';
 
-export const ORDER_STATUSES = ['pending', 'paid', 'cancelled', 'expired'] as const;
+export const ORDER_STATUSES = [
+  'pending',
+  'paid',
+  'cancelled',
+  'expired',
+] as const;
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
 
-const createdAt = () => timestamp('created_at', { withTimezone: true }).notNull().defaultNow();
+const createdAt = () =>
+  timestamp('created_at', { withTimezone: true }).notNull().defaultNow();
 
 export const events = pgTable('events', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -59,7 +65,9 @@ export const orders = pgTable(
     quantity: smallint('quantity').notNull(),
     unitPriceIdr: integer('unit_price_idr').notNull(),
     totalIdr: integer('total_idr').notNull(),
-    status: text('status', { enum: ORDER_STATUSES }).notNull().default('pending'),
+    status: text('status', { enum: ORDER_STATUSES })
+      .notNull()
+      .default('pending'),
     expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
     paidAt: timestamp('paid_at', { withTimezone: true }),
     createdAt: createdAt(),
@@ -71,7 +79,10 @@ export const orders = pgTable(
       .on(table.expiresAt)
       .where(sql`${table.status} = 'pending'`),
     check('orders_quantity_check', sql`${table.quantity} between 1 and 4`),
-    check('orders_status_check', sql`${table.status} in ('pending', 'paid', 'cancelled', 'expired')`),
+    check(
+      'orders_status_check',
+      sql`${table.status} in ('pending', 'paid', 'cancelled', 'expired')`,
+    ),
   ],
 );
 
@@ -84,9 +95,13 @@ export const tickets = pgTable(
       .references(() => orders.id, { onDelete: 'cascade' }),
     seatNo: smallint('seat_no').notNull(),
     code: text('code').notNull().unique(),
-    issuedAt: timestamp('issued_at', { withTimezone: true }).notNull().defaultNow(),
+    issuedAt: timestamp('issued_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
-  (table) => [uniqueIndex('tickets_order_seat_key').on(table.orderId, table.seatNo)],
+  (table) => [
+    uniqueIndex('tickets_order_seat_key').on(table.orderId, table.seatNo),
+  ],
 );
 
 // Id event dari provider pembayaran. Primary key di sini yang membuat webhook
@@ -96,5 +111,7 @@ export const paymentEvents = pgTable('payment_events', {
   orderId: uuid('order_id')
     .notNull()
     .references(() => orders.id, { onDelete: 'cascade' }),
-  receivedAt: timestamp('received_at', { withTimezone: true }).notNull().defaultNow(),
+  receivedAt: timestamp('received_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
 });

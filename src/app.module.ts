@@ -23,7 +23,8 @@ const observe = process.env.OBSERVE_APP_KEY
     ]
   : [];
 
-const DEFAULT_URL = 'postgres://ambaticket:ambaticket@localhost:5432/ambaticket';
+const DEFAULT_URL =
+  'postgres://ambaticket:ambaticket@localhost:5432/ambaticket';
 
 // DrizzleModule membuat koneksi sekali per aplikasi, jadi tiap app e2e punya pool sendiri
 // yang ditutup saat app.close(). Migrasi dijalankan di sini supaya skema siap sebelum query.

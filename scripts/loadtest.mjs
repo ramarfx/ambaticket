@@ -43,10 +43,14 @@ const stock = detail.ticketTypes.find((type) => type.name === 'Reguler');
 console.log(`permintaan      : ${buyers} bersamaan, kuota ${quota}`);
 console.log(`diterima (201)  : ${accepted.length}`);
 console.log(`ditolak (409)   : ${rejected.length}`);
-console.log(`sisa kuota      : ${stock.remaining}, terjual ${stock.sold}, ditahan ${stock.held}`);
+console.log(
+  `sisa kuota      : ${stock.remaining}, terjual ${stock.sold}, ditahan ${stock.held}`,
+);
 console.log(`waktu total     : ${elapsed} ms`);
 console.log(
-  accepted.length === quota && rejected.length === buyers - quota && stock.remaining === 0
+  accepted.length === quota &&
+    rejected.length === buyers - quota &&
+    stock.remaining === 0
     ? 'HASIL: tepat 100 terjual, tidak ada oversell'
     : 'HASIL: TIDAK SESUAI HARAPAN',
 );

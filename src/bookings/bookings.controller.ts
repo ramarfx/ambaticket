@@ -1,11 +1,4 @@
-import {
-  Body,
-  Controller,
-  Get,
-  HttpCode,
-  Param,
-  Post,
-} from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, Post } from '@nestjs/common';
 import { z } from 'zod';
 import { Buyer, buyerIdSchema } from '../common/buyer.decorator.js';
 import { createOrderSchema, type CreateOrderInput } from './bookings.schema.js';

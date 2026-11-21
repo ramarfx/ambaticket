@@ -147,19 +147,19 @@ Ambil image itu di mesin lain dengan `docker pull`, lalu jalankan dengan `DATABA
 
 ## Endpoint
 
-| Method | Path | Keterangan |
-| --- | --- | --- |
-| `GET` | `/` | status API |
-| `POST` | `/events` | buat event dan tipe tiketnya |
-| `GET` | `/events` | daftar event dengan sisa kuota tiap tipe |
-| `GET` | `/events/:id` | detail event dan stok |
-| `POST` | `/orders` | pesan 1 sampai 4 tiket (`x-buyer-id`) |
-| `GET` | `/orders` | riwayat pesanan pembeli |
-| `GET` | `/orders/:id` | satu pesanan beserta tiketnya |
-| `POST` | `/orders/:id/cancel` | batal sebelum bayar |
-| `GET` | `/tickets` | semua tiket milik pembeli |
-| `POST` | `/orders/:id/pay` | simulasi pembayaran lunas |
-| `POST` | `/webhooks/payments` | webhook provider, wajib HMAC |
+| Method | Path                 | Keterangan                               |
+| ------ | -------------------- | ---------------------------------------- |
+| `GET`  | `/`                  | status API                               |
+| `POST` | `/events`            | buat event dan tipe tiketnya             |
+| `GET`  | `/events`            | daftar event dengan sisa kuota tiap tipe |
+| `GET`  | `/events/:id`        | detail event dan stok                    |
+| `POST` | `/orders`            | pesan 1 sampai 4 tiket (`x-buyer-id`)    |
+| `GET`  | `/orders`            | riwayat pesanan pembeli                  |
+| `GET`  | `/orders/:id`        | satu pesanan beserta tiketnya            |
+| `POST` | `/orders/:id/cancel` | batal sebelum bayar                      |
+| `GET`  | `/tickets`           | semua tiket milik pembeli                |
+| `POST` | `/orders/:id/pay`    | simulasi pembayaran lunas                |
+| `POST` | `/webhooks/payments` | webhook provider, wajib HMAC             |
 
 Identitas pembeli memakai header `x-buyer-id` (bebas diisi apa saja). Ini bukan autentikasi sungguhan, sesuai aturan tugas.
 
@@ -172,8 +172,22 @@ Identitas pembeli memakai header `x-buyer-id` (bebas diisi apa saja). Ini bukan 
   "id": "...",
   "name": "Konser Amba",
   "ticketTypes": [
-    { "name": "VIP", "priceIdr": 500000, "quota": 10, "sold": 0, "held": 0, "remaining": 10 },
-    { "name": "Reguler", "priceIdr": 150000, "quota": 100, "sold": 0, "held": 2, "remaining": 98 }
+    {
+      "name": "VIP",
+      "priceIdr": 500000,
+      "quota": 10,
+      "sold": 0,
+      "held": 0,
+      "remaining": 10
+    },
+    {
+      "name": "Reguler",
+      "priceIdr": 150000,
+      "quota": 100,
+      "sold": 0,
+      "held": 2,
+      "remaining": 98
+    }
   ]
 }
 ```
@@ -184,15 +198,15 @@ Pesanan berstatus `pending`, `paid`, `cancelled`, atau `expired`.
 
 ### Kode kesalahan
 
-| HTTP | `code` | Arti |
-| --- | --- | --- |
-| 400 | bawaan Nest | body tidak valid, misalnya jumlah 0 atau 5 |
-| 401 | `invalid_signature` | tanda tangan webhook salah |
-| 404 | `event_not_found`, `ticket_type_not_found`, `order_not_found` | data tidak ada atau bukan milik pembeli |
-| 409 | `sold_out` | sisa kuota kurang dari permintaan |
-| 409 | `ticket_limit_exceeded` | total tiket pembeli di event itu akan lewat 4 |
-| 409 | `order_expired`, `order_cancelled`, `order_already_paid` | pesanan tidak bisa dibayar atau dibatalkan |
-| 409 | `amount_mismatch` | nominal webhook tidak sama dengan total pesanan |
+| HTTP | `code`                                                        | Arti                                            |
+| ---- | ------------------------------------------------------------- | ----------------------------------------------- |
+| 400  | bawaan Nest                                                   | body tidak valid, misalnya jumlah 0 atau 5      |
+| 401  | `invalid_signature`                                           | tanda tangan webhook salah                      |
+| 404  | `event_not_found`, `ticket_type_not_found`, `order_not_found` | data tidak ada atau bukan milik pembeli         |
+| 409  | `sold_out`                                                    | sisa kuota kurang dari permintaan               |
+| 409  | `ticket_limit_exceeded`                                       | total tiket pembeli di event itu akan lewat 4   |
+| 409  | `order_expired`, `order_cancelled`, `order_already_paid`      | pesanan tidak bisa dibayar atau dibatalkan      |
+| 409  | `amount_mismatch`                                             | nominal webhook tidak sama dengan total pesanan |
 
 ## Struktur repo
 
@@ -210,12 +224,12 @@ docker/        initdb untuk database test
 
 ## Konfigurasi
 
-| Variabel | Default | Arti |
-| --- | --- | --- |
-| `DATABASE_URL` | `postgres://ambaticket:ambaticket@localhost:5432/ambaticket` | koneksi Postgres |
-| `ORDER_TTL_SECONDS` | `900` | umur pesanan sebelum kuota dilepas |
-| `PAYMENT_WEBHOOK_SECRET` | `dev-webhook-secret` | kunci HMAC webhook |
-| `PORT` | `3000` | port API |
+| Variabel                 | Default                                                      | Arti                               |
+| ------------------------ | ------------------------------------------------------------ | ---------------------------------- |
+| `DATABASE_URL`           | `postgres://ambaticket:ambaticket@localhost:5432/ambaticket` | koneksi Postgres                   |
+| `ORDER_TTL_SECONDS`      | `900`                                                        | umur pesanan sebelum kuota dilepas |
+| `PAYMENT_WEBHOOK_SECRET` | `dev-webhook-secret`                                         | kunci HMAC webhook                 |
+| `PORT`                   | `3000`                                                       | port API                           |
 
 ## Kenapa desainnya begini
 

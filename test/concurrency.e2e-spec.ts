@@ -1,6 +1,13 @@
 import { and, eq, sql } from 'drizzle-orm';
 import { orders } from '../src/db/schema.js';
-import { createTestApp, getEvent, order, resetDb, seedEvent, type TestContext } from './helpers.js';
+import {
+  createTestApp,
+  getEvent,
+  order,
+  resetDb,
+  seedEvent,
+  type TestContext,
+} from './helpers.js';
 
 describe('Kuota di bawah tekanan', () => {
   let ctx: TestContext;
@@ -30,12 +37,16 @@ describe('Kuota di bawah tekanan', () => {
     const rejected = responses.filter((response) => response.status === 409);
     expect(accepted).toHaveLength(100);
     expect(rejected).toHaveLength(100);
-    expect(rejected.every((response) => response.body.code === 'sold_out')).toBe(true);
+    expect(
+      rejected.every((response) => response.body.code === 'sold_out'),
+    ).toBe(true);
 
     const detail = await getEvent(ctx.http, event.id).expect(200);
-    expect(detail.body.ticketTypes.find((type: { name: string }) => type.name === 'Reguler')).toMatchObject(
-      { sold: 0, held: 100, remaining: 0 },
-    );
+    expect(
+      detail.body.ticketTypes.find(
+        (type: { name: string }) => type.name === 'Reguler',
+      ),
+    ).toMatchObject({ sold: 0, held: 100, remaining: 0 });
 
     const [total] = await ctx.db
       .select({ quantity: sql<number>`sum(${orders.quantity})::int` })
@@ -48,13 +59,21 @@ describe('Kuota di bawah tekanan', () => {
     const event = await seedEvent(ctx.http, 50, 10);
 
     const responses = await Promise.all(
-      Array.from({ length: 10 }, () => order(ctx.http, 'pembeli-serakah', event.reguler.id, 1)),
+      Array.from({ length: 10 }, () =>
+        order(ctx.http, 'pembeli-serakah', event.reguler.id, 1),
+      ),
     );
 
-    expect(responses.filter((response) => response.status === 201)).toHaveLength(4);
+    expect(
+      responses.filter((response) => response.status === 201),
+    ).toHaveLength(4);
     const rejected = responses.filter((response) => response.status === 409);
     expect(rejected).toHaveLength(6);
-    expect(rejected.every((response) => response.body.code === 'ticket_limit_exceeded')).toBe(true);
+    expect(
+      rejected.every(
+        (response) => response.body.code === 'ticket_limit_exceeded',
+      ),
+    ).toBe(true);
 
     const [total] = await ctx.db
       .select({ quantity: sql<number>`sum(${orders.quantity})::int` })

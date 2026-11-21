@@ -30,7 +30,12 @@ describe('Pesanan dan tiket', () => {
   it('alur pesan sampai tiket terbit dengan kode unik', async () => {
     const event = await seedEvent(ctx.http, 10);
 
-    const created = await order(ctx.http, 'buyer-1', event.reguler.id, 2).expect(201);
+    const created = await order(
+      ctx.http,
+      'buyer-1',
+      event.reguler.id,
+      2,
+    ).expect(201);
     expect(created.body).toMatchObject({
       status: 'pending',
       quantity: 2,
@@ -42,16 +47,27 @@ describe('Pesanan dan tiket', () => {
     );
 
     const held = await getEvent(ctx.http, event.id).expect(200);
-    expect(typeOf(held.body, 'Reguler')).toMatchObject({ sold: 0, held: 2, remaining: 8 });
+    expect(typeOf(held.body, 'Reguler')).toMatchObject({
+      sold: 0,
+      held: 2,
+      remaining: 8,
+    });
 
     const paid = await pay(ctx.http, created.body.id).expect(200);
     expect(paid.body.applied).toBe(true);
     expect(paid.body.order.status).toBe('paid');
     expect(paid.body.tickets).toHaveLength(2);
-    expect(new Set(paid.body.tickets.map((ticket: { code: string }) => ticket.code)).size).toBe(2);
+    expect(
+      new Set(paid.body.tickets.map((ticket: { code: string }) => ticket.code))
+        .size,
+    ).toBe(2);
 
     const sold = await getEvent(ctx.http, event.id).expect(200);
-    expect(typeOf(sold.body, 'Reguler')).toMatchObject({ sold: 2, held: 0, remaining: 8 });
+    expect(typeOf(sold.body, 'Reguler')).toMatchObject({
+      sold: 2,
+      held: 0,
+      remaining: 8,
+    });
 
     const history = await request(ctx.http)
       .get('/orders')
@@ -64,7 +80,10 @@ describe('Pesanan dan tiket', () => {
       .set('x-buyer-id', 'buyer-1')
       .expect(200);
     expect(tickets.body).toHaveLength(2);
-    expect(tickets.body[0]).toMatchObject({ eventName: 'Konser Uji', ticketTypeName: 'Reguler' });
+    expect(tickets.body[0]).toMatchObject({
+      eventName: 'Konser Uji',
+      ticketTypeName: 'Reguler',
+    });
   });
 
   it('kuota habis tidak bisa dijual lebih', async () => {
@@ -72,11 +91,20 @@ describe('Pesanan dan tiket', () => {
 
     await order(ctx.http, 'buyer-1', event.reguler.id, 2).expect(201);
 
-    const rejected = await order(ctx.http, 'buyer-2', event.reguler.id, 1).expect(409);
+    const rejected = await order(
+      ctx.http,
+      'buyer-2',
+      event.reguler.id,
+      1,
+    ).expect(409);
     expect(rejected.body).toMatchObject({ code: 'sold_out', remaining: 0 });
 
     const detail = await getEvent(ctx.http, event.id).expect(200);
-    expect(typeOf(detail.body, 'Reguler')).toMatchObject({ sold: 0, held: 2, remaining: 0 });
+    expect(typeOf(detail.body, 'Reguler')).toMatchObject({
+      sold: 0,
+      held: 2,
+      remaining: 0,
+    });
     expect(typeOf(detail.body, 'VIP')).toMatchObject({ remaining: 1 });
 
     await order(ctx.http, 'buyer-2', event.vip.id, 1).expect(201);
@@ -84,7 +112,12 @@ describe('Pesanan dan tiket', () => {
 
   it('batal sebelum bayar mengembalikan kuota seketika', async () => {
     const event = await seedEvent(ctx.http, 2, 1);
-    const created = await order(ctx.http, 'buyer-1', event.reguler.id, 2).expect(201);
+    const created = await order(
+      ctx.http,
+      'buyer-1',
+      event.reguler.id,
+      2,
+    ).expect(201);
 
     const cancelled = await request(ctx.http)
       .post(`/orders/${created.body.id}/cancel`)
@@ -93,7 +126,10 @@ describe('Pesanan dan tiket', () => {
     expect(cancelled.body.status).toBe('cancelled');
 
     const detail = await getEvent(ctx.http, event.id).expect(200);
-    expect(typeOf(detail.body, 'Reguler')).toMatchObject({ held: 0, remaining: 2 });
+    expect(typeOf(detail.body, 'Reguler')).toMatchObject({
+      held: 0,
+      remaining: 2,
+    });
 
     await order(ctx.http, 'buyer-2', event.reguler.id, 2).expect(201);
 
@@ -109,18 +145,24 @@ describe('Pesanan dan tiket', () => {
 
     await order(ctx.http, 'buyer-1', event.reguler.id, 3).expect(201);
 
-    const over = await order(ctx.http, 'buyer-1', event.reguler.id, 2).expect(409);
+    const over = await order(ctx.http, 'buyer-1', event.reguler.id, 2).expect(
+      409,
+    );
     expect(over.body).toMatchObject({
       code: 'ticket_limit_exceeded',
       activeTickets: 3,
       limit: 4,
     });
 
-    const fourth = await order(ctx.http, 'buyer-1', event.reguler.id, 1).expect(201);
+    const fourth = await order(ctx.http, 'buyer-1', event.reguler.id, 1).expect(
+      201,
+    );
     await pay(ctx.http, fourth.body.id).expect(200);
 
     await order(ctx.http, 'buyer-1', event.reguler.id, 1).expect(409);
-    const crossType = await order(ctx.http, 'buyer-1', event.vip.id, 1).expect(409);
+    const crossType = await order(ctx.http, 'buyer-1', event.vip.id, 1).expect(
+      409,
+    );
     expect(crossType.body.code).toBe('ticket_limit_exceeded');
 
     const heldOrders = await request(ctx.http)
@@ -137,7 +179,12 @@ describe('Pesanan dan tiket', () => {
 
   it('pesanan kedaluwarsa mengembalikan kuota dan tidak bisa dibayar', async () => {
     const event = await seedEvent(ctx.http, 2, 1);
-    const created = await order(ctx.http, 'buyer-1', event.reguler.id, 2).expect(201);
+    const created = await order(
+      ctx.http,
+      'buyer-1',
+      event.reguler.id,
+      2,
+    ).expect(201);
 
     await ctx.db
       .update(orders)
@@ -145,7 +192,10 @@ describe('Pesanan dan tiket', () => {
       .where(eq(orders.id, created.body.id));
 
     const detail = await getEvent(ctx.http, event.id).expect(200);
-    expect(typeOf(detail.body, 'Reguler')).toMatchObject({ held: 0, remaining: 2 });
+    expect(typeOf(detail.body, 'Reguler')).toMatchObject({
+      held: 0,
+      remaining: 2,
+    });
 
     const mine = await request(ctx.http)
       .get(`/orders/${created.body.id}`)
@@ -160,17 +210,27 @@ describe('Pesanan dan tiket', () => {
 
     const swept = await ctx.app.get(BookingsService).expireStale();
     expect(swept).toBe(1);
-    const [row] = await ctx.db.select().from(orders).where(eq(orders.id, created.body.id));
+    const [row] = await ctx.db
+      .select()
+      .from(orders)
+      .where(eq(orders.id, created.body.id));
     expect(row.status).toBe('expired');
   });
 
   it('bayar dua kali tetap satu set tiket', async () => {
     const event = await seedEvent(ctx.http, 10);
-    const created = await order(ctx.http, 'buyer-1', event.reguler.id, 2).expect(201);
+    const created = await order(
+      ctx.http,
+      'buyer-1',
+      event.reguler.id,
+      2,
+    ).expect(201);
 
     const first = await pay(ctx.http, created.body.id).expect(200);
     const second = await pay(ctx.http, created.body.id).expect(200);
-    expect(second.body.tickets.map((ticket: { code: string }) => ticket.code)).toEqual(
+    expect(
+      second.body.tickets.map((ticket: { code: string }) => ticket.code),
+    ).toEqual(
       first.body.tickets.map((ticket: { code: string }) => ticket.code),
     );
 
@@ -191,7 +251,12 @@ describe('Pesanan dan tiket', () => {
       .send({ ticketTypeId: event.reguler.id, quantity: 1 })
       .expect(400);
 
-    const created = await order(ctx.http, 'buyer-1', event.reguler.id, 1).expect(201);
+    const created = await order(
+      ctx.http,
+      'buyer-1',
+      event.reguler.id,
+      1,
+    ).expect(201);
     await request(ctx.http)
       .get(`/orders/${created.body.id}`)
       .set('x-buyer-id', 'buyer-2')

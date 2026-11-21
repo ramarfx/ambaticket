@@ -86,13 +86,13 @@ Kode tiket sengaja random, bukan kunci idempotensi. Satu pesanan menerbitkan 1 s
 
 Perilaku yang diuji:
 
-| Kejadian | Hasil |
-| --- | --- |
-| Webhook yang sama dikirim dua kali | 200, `duplicate: true`, tiket identik |
-| Event id berbeda untuk pesanan yang sudah lunas | 200, tidak ada tiket tambahan |
-| Webhook tiba setelah kedaluwarsa | 200, `applied: false`, `reason: order_expired`, tidak ada tiket |
-| Nominal tidak cocok | 409 `amount_mismatch`, event tidak dicatat, kiriman yang benar masih bisa diproses |
-| Lima webhook identik bersamaan | satu set tiket |
+| Kejadian                                        | Hasil                                                                              |
+| ----------------------------------------------- | ---------------------------------------------------------------------------------- |
+| Webhook yang sama dikirim dua kali              | 200, `duplicate: true`, tiket identik                                              |
+| Event id berbeda untuk pesanan yang sudah lunas | 200, tidak ada tiket tambahan                                                      |
+| Webhook tiba setelah kedaluwarsa                | 200, `applied: false`, `reason: order_expired`, tidak ada tiket                    |
+| Nominal tidak cocok                             | 409 `amount_mismatch`, event tidak dicatat, kiriman yang benar masih bisa diproses |
+| Lima webhook identik bersamaan                  | satu set tiket                                                                     |
 
 Kenapa webhook terlambat dibalas 200, bukan 4xx atau 5xx: provider sungguhan akan mengulang terus kalau dibalas error. Yang benar adalah mengakui penerimaan, tidak menerbitkan tiket, dan menyerahkan refund ke proses di luar sistem ini. Uang tidak boleh menukar kursi yang sudah dijual ke orang lain.
 
