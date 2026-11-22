@@ -1,0 +1,350 @@
+{
+  "info": {
+    "name": "AmbaTicket API Demo",
+    "description": "Postman Collection lengkap untuk pengujian dan demo alur AmbaTicket: Healthcheck, Event, Pemesanan, Pembatalan, Pembayaran (/pay & Webhook HMAC), dan Tiket.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "buyerId",
+      "value": "demo-buyer-1",
+      "type": "string"
+    },
+    {
+      "key": "webhookSecret",
+      "value": "dev-webhook-secret",
+      "type": "string"
+    },
+    {
+      "key": "eventId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "ticketTypeId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "orderId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "orderTotalIdr",
+      "value": "0",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Healthcheck",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/",
+          "host": ["{{baseUrl}}"],
+          "path": [""]
+        }
+      }
+    },
+    {
+      "name": "2. Events",
+      "item": [
+        {
+          "name": "Daftar Event (GET /events)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (Array.isArray(res) && res.length > 0) {",
+                  "    pm.collectionVariables.set('eventId', res[0].id);",
+                  "    if (res[0].ticketTypes && res[0].ticketTypes.length > 0) {",
+                  "        pm.collectionVariables.set('ticketTypeId', res[0].ticketTypes[0].id);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/events",
+              "host": ["{{baseUrl}}"],
+              "path": ["events"]
+            }
+          }
+        },
+        {
+          "name": "Buat Event Demo (POST /events)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res && res.id) {",
+                  "    pm.collectionVariables.set('eventId', res.id);",
+                  "    if (res.ticketTypes && res.ticketTypes.length > 0) {",
+                  "        pm.collectionVariables.set('ticketTypeId', res.ticketTypes[0].id);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Konser Demo Postman {{$timestamp}}\",\n  \"venue\": \"Auditorium Utama\",\n  \"startsAt\": \"2026-12-31T20:00:00+07:00\",\n  \"ticketTypes\": [\n    {\n      \"name\": \"VIP\",\n      \"priceIdr\": 500000,\n      \"quota\": 3\n    },\n    {\n      \"name\": \"Reguler\",\n      \"priceIdr\": 200000,\n      \"quota\": 50\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/events",
+              "host": ["{{baseUrl}}"],
+              "path": ["events"]
+            }
+          }
+        },
+        {
+          "name": "Detail Event & Sisa Kuota (GET /events/:id)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/events/{{eventId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["events", "{{eventId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Pemesanan (Orders)",
+      "item": [
+        {
+          "name": "Pesan Tiket (POST /orders)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res && res.id) {",
+                  "    pm.collectionVariables.set('orderId', res.id);",
+                  "    pm.collectionVariables.set('orderTotalIdr', res.totalIdr.toString());",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-buyer-id",
+                "value": "{{buyerId}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ticketTypeId\": \"{{ticketTypeId}}\",\n  \"quantity\": 2\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/orders",
+              "host": ["{{baseUrl}}"],
+              "path": ["orders"]
+            }
+          }
+        },
+        {
+          "name": "Daftar Pesanan Pembeli (GET /orders)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-buyer-id",
+                "value": "{{buyerId}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/orders",
+              "host": ["{{baseUrl}}"],
+              "path": ["orders"]
+            }
+          }
+        },
+        {
+          "name": "Detail Pesanan (GET /orders/:id)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-buyer-id",
+                "value": "{{buyerId}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/orders/{{orderId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["orders", "{{orderId}}"]
+            }
+          }
+        },
+        {
+          "name": "Batalkan Pesanan (POST /orders/:id/cancel)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-buyer-id",
+                "value": "{{buyerId}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/orders/{{orderId}}/cancel",
+              "host": ["{{baseUrl}}"],
+              "path": ["orders", "{{orderId}}", "cancel"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Pembayaran",
+      "item": [
+        {
+          "name": "Simulasi Bayar Langsung (POST /orders/:id/pay)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/orders/{{orderId}}/pay",
+              "host": ["{{baseUrl}}"],
+              "path": ["orders", "{{orderId}}", "pay"]
+            }
+          }
+        },
+        {
+          "name": "Webhook Berhasil - Auto HMAC (POST /webhooks/payments)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "const secret = pm.collectionVariables.get('webhookSecret') || 'dev-webhook-secret';",
+                  "const orderId = pm.collectionVariables.get('orderId');",
+                  "const amountIdr = parseInt(pm.collectionVariables.get('orderTotalIdr'), 10) || 400000;",
+                  "const payload = {",
+                  "    eventId: 'postman-evt-' + Date.now(),",
+                  "    orderId: orderId,",
+                  "    type: 'payment.succeeded',",
+                  "    amountIdr: amountIdr",
+                  "};",
+                  "const rawBody = JSON.stringify(payload);",
+                  "pm.variables.set('webhookPayload', rawBody);",
+                  "const signature = CryptoJS.HmacSHA256(rawBody, secret).toString(CryptoJS.enc.Hex);",
+                  "pm.variables.set('calculatedSignature', signature);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-payment-signature",
+                "value": "{{calculatedSignature}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{{webhookPayload}}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/webhooks/payments",
+              "host": ["{{baseUrl}}"],
+              "path": ["webhooks", "payments"]
+            }
+          }
+        },
+        {
+          "name": "Webhook Gagal - Signature Salah 401 (POST /webhooks/payments)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-payment-signature",
+                "value": "invalid-signature-12345"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"eventId\": \"fake-evt-001\",\n  \"orderId\": \"{{orderId}}\",\n  \"type\": \"payment.succeeded\",\n  \"amountIdr\": {{orderTotalIdr}}\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/webhooks/payments",
+              "host": ["{{baseUrl}}"],
+              "path": ["webhooks", "payments"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Tiket (Tickets)",
+      "item": [
+        {
+          "name": "Daftar Tiket Terbit (GET /tickets)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-buyer-id",
+                "value": "{{buyerId}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/tickets",
+              "host": ["{{baseUrl}}"],
+              "path": ["tickets"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
